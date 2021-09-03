@@ -309,5 +309,5 @@ else
 	tar hcf results_${test_name}_${to_tuned_setting}.tar  $RESULTSDIR
 	tar hcf results_pbench_${test_name}_${to_tuned_setting}.tar  $RESULTSDIR
 fi
-#umount /speccpu
-#umount /speccpu_run
+umount /speccpu
+umount /speccpu_run
