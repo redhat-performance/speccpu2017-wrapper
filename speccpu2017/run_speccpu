@@ -1,0 +1,313 @@
+#!/bin/bash
+
+#
+#                         License
+#
+# Copyright (C) 2021  David Valin dvalin@redhat.com
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+#
+#
+# This script provides an automated means of running the speccpu kit, it is the 
+# end users responsibility to have a copy of the speccpu2017 kit.
+#
+test_name=speccpu2017
+arguments="$@"
+chars=`echo $0 | awk -v RS='/' 'END{print NR-1}'`
+run_dir=`echo $0 | cut -d'/' -f 1-${chars}`
+
+setup_done=0
+run_user="none"
+out_file=""
+copies=""
+tests="fprate,intrate"
+test_prefix="none"
+tools_git=https://github.com/dvalinrh/test_tools
+disk_to_use=""
+spec_config=""
+
+usage()
+{
+	echo "Usage:"
+	echo "  --copies: number of copies of speccpu2017 to run.  Default is nprocs"
+	echo "  --spec_config: Spec configuration file to use, default is  ${spec_config}"
+	echo "  --test: comma separated list of speccpu2017 tests running."
+	echo "  --test_prefix: prefix name of the test results"
+	echo "  --usage: this is usage message"
+	source test_tools/general_setup --usage
+}
+
+generate_results_csv()
+{
+	mkdir why_the_hell 2> /dev/null
+	for file in `ls *txt`; do
+		out_file=`echo $file | cut -d'.' -f1-4`.results.csv
+		start_data=0
+		#
+		# For some reason we read the wrong f'ing file if we try addressing
+		# it via file, or in the current directory.  Work around it, should
+		# not be happening.
+		#
+		cp $file why_the_hell/data
+		cd why_the_hell
+		echo "Benchmarks:Base copies:Base Run Time:Base Rate" > ../$out_file
+		while IFS= read -r line
+		do
+			if [ $start_data -eq 0 ]; then
+				if [[ $line == "=="* ]]; then
+					start_data=1
+				fi
+				continue
+			fi
+			if [[ $line == *"Est."* ]]; then
+				break
+			fi
+			value=`echo $line | cut -d' ' -f1-4`
+			checking=`echo $value | cut -d' ' -f 2`
+			if [[ $checking == "NR" ]]; then
+				local_test_name=`echo $value | cut -d' ' -f 1`
+				output="${local_test_name}:::NR"
+			else
+				output=`echo $value | sed "s/ /:/g"`
+			fi
+			echo $output >> ../$out_file
+		done < "data"
+		cd ..
+	done
+	rm -rf why_the_hell
+}
+
+found=0
+for arg in "$@"; do
+	if [ $found -eq 1 ]; then
+		tools_git=$arg
+		break;
+	fi
+	if [[ $arg == "--tools_git" ]]; then
+		found=1
+	fi
+
+	#
+	# We do the usage check here, as we do not want to be calling
+	# the common parsers then checking for usage here.  Doing so will
+	# result in the script exiting with out giving the test options.
+	#
+	if [[ $arg == "--usage" ]]; then
+		usage $0
+	fi
+done
+
+#
+# Check to see if the test tools directory exists.  If it does, we do not need to
+# clone the repo.
+#
+if [ ! -d "test_tools" ]; then
+	git clone $tools_git
+	if [ $? -ne 0 ]; then
+		echo pulling git $tools_git failed.
+	exit
+	fi
+fi
+
+# Variables set by general setup.
+#
+# TOOLS_BIN: points to the tool directory
+# to_home_root: home directory
+# to_configuration: configuration information
+# to_times_to_run: number of times to run the test
+# to_pbench: Run the test via pbench
+# to_puser: User running pbench
+# to_run_label: Label for the run
+# to_user: User on the test system running the test
+# to_sys_type: for results info, basically aws, azure or local
+# to_sysname: name of the system
+# to_tuned_setting: tuned setting
+#
+
+source test_tools/general_setup "$@"
+
+
+# Define options
+#
+ARGUMENT_LIST=(
+	"copies"
+	"disks"
+	"run_user"
+	"spec_config"
+	"test"
+	"test_prefix"
+)
+
+NO_ARGUMENTS=(
+	"usage"
+)
+
+# read arguments
+opts=$(getopt \
+    --longoptions "$(printf "%s:," "${ARGUMENT_LIST[@]}")" \
+    --longoptions "$(printf "%s," "${NO_ARGUMENTS[@]}")" \
+    --name "$(basename "$0")" \
+    --options "h" \
+    -- "$@"
+)
+
+eval set --$opts
+
+while [[ $# -gt 0 ]]; do
+        case "$1" in
+		--copies)
+			pbench_arg_list="${pbench_arg_list} $1 $2"
+			copies=${2}
+			shift 2
+		;;
+		--disks)
+			pbench_arg_list="${pbench_arg_list} $1 $2"
+			disks_to_use=${2}
+			shift 2
+		;;
+		--spec_config)
+			spec_config=${2}
+			shift 2
+			;;
+		--test)
+			tests=${2}
+			shift 2
+		;;
+		--test_prefix)
+			test_prefix=${2}
+			shift 2
+		;;
+		--tools_git)
+			tools_git=$2
+			shift 2
+		;;
+		--usage)
+			usage $0
+		;;
+		-h)
+			usage $0
+		;;
+		--)
+			break; 
+		;;
+		*)
+			echo option not found $1
+			usage $0
+		;;
+        esac
+done
+
+if [[ $spec_config == "" ]]; then
+	model_name=`cat /proc/cpuinfo | grep "model name" | sort -u`
+	if [[ $model_name == "*Intel"* ]]; then
+		spec_config="/speccpu_run/config/Example-gcc-linux-x86.cfg"
+	else
+		spec_config="/speccpu_run/config/Example-gcc-linux-aarch64.cfg"
+	fi
+fi
+
+if [ $to_pbench -eq 1 ]; then
+	source ~/.bashrc
+	echo $TOOLS_BIN/execute_pbench --cmd_executing "$0" $arguments --test ${test_name} --spacing 11
+	$TOOLS_BIN/execute_pbench --cmd_executing "$0" $arguments --test ${test_name} --spacing 11
+else
+	if [[ ! -f "/speccpu/shrc" ]]; then
+		if [[ $disks_to_use == "" ]] || [[ $disks_to_use == "grab_disks" ]]; then
+			/${to_home_root}/${to_user}/tools_bin/grab_disks
+			disk=`cat disks | cut -d' ' -f 1`
+		else
+			echo $disks_to_use
+			disk=`echo $disks_to_use | cut -d',' -f 1 | cut -d'/' -f3-`
+		fi
+		mkfs.xfs -f /dev/${disk}
+		if [ $? -ne 0 ]; then
+			echo Error: Failed to make filesystem using /dev/${disk}
+			exit 1
+		fi
+		mkdir /speccpu
+		rm -rf /speccpu_run
+		mkdir /speccpu_run
+		echo mount /dev/${disk} /speccpu_run
+		mount /dev/${disk} /speccpu_run
+		if [ $? -ne 0 ]; then
+			echo Error: failed to mount /dev/${disk} on to /speccpu_run
+			exit 1
+		fi
+		echo mount  -t iso9660 /${to_home_root}/${to_user}/cpu2017-1*.iso /speccpu
+		mount  -t iso9660 /${to_home_root}/${to_user}/cpu2017*.iso /speccpu
+		if [ $? -ne 0 ]; then
+			echo Error: failed to mount /${to_home_root}/${to_user}/cpu2017*.iso /speccpu
+			exit 1
+		fi
+		echo /speccpu_run > /tmp/options
+		echo yes >> /tmp/options
+		cd /speccpu
+		./install.sh < /tmp/options
+		if [ $? -ne 0 ]; then
+			echo Error: install.sh failed.
+			exit 1
+		fi
+		echo install complete
+		#
+		# Verify running at least 1.1.8
+		#
+		version=`cat /speccpu/version.txt | sed "s/\.//g"`
+		if [[ $version -lt 118 ]]; then
+			echo Error, need version 1.1.8 or later
+			exit 1
+		fi
+	fi
+	sed "s/%   define  gcc_dir        \"\/opt\/rh\/devtoolset-9\/root\/usr\"/%   define  gcc_dir \/usr/g" $spec_config > /tmp/foo
+	sed "s/tune                 = base,peak/tune                 = base/g" /tmp/foo > /tmp/foo1
+
+	#
+	# Handle compiler version
+	#
+	sed "s/%   define model        -mabi=lp64/%   define model        \"\"/g" /tmp/foo1 > /tmp/foo
+	gcc_version=`gcc --version|grep ^gcc|awk '{print $3}' | cut -d'.' -f 1`
+	if [[ $gcc_version -lt 10 ]]; then
+		sed "s/   preENV_LD_LIBRARY_PATH/#   preENV_LD_LIBRARY_PATH/g" /tmp/foo >  ${to_home_root}/${to_user}/default_spec.cfg
+	else
+		sed "s/#%define GCCge10  # EDIT: remove the/%define GCCge10  # EDIT: remove the/g" /tmp/foo > /tmp/foo
+		sed "s/   preENV_LD_LIBRARY_PATH/#   preENV_LD_LIBRARY_PATH/g" /tmp/foo >  ${to_home_root}/${to_user}/default_spec.cfg
+	fi
+
+	spec_config=${to_home_root}/${to_user}/default_spec.cfg
+	cd /speccpu_run
+	source shrc
+	if [[ $copies == "" ]]; then
+		copies=`nproc`
+	fi
+	tests_to_run=`echo $tests | sed "s/,/ /g"`
+	
+	for test_to_run in $tests_to_run
+	do
+		runcpu --config=${spec_config} --copies=$copies $test_to_run
+	done
+
+	cd /tmp
+	RESULTSDIR=results_speccpu_${to_tuned_setting}_$(date "+%Y.%m.%d-%H.%M.%S")
+	mkdir -p ${RESULTSDIR}/run_results
+	ln -s ${RESULTSDIR} results_pbench_speccpu_${to_tuned_setting}
+
+	pushd /speccpu_run/result
+	generate_results_csv
+	popd
+	cp -R /speccpu_run/result/* ${RESULTSDIR}/run_results
+	tar hcf results_${test_name}_${to_tuned_setting}.tar  $RESULTSDIR
+	tar hcf results_pbench_${test_name}_${to_tuned_setting}.tar  $RESULTSDIR
+fi
+#umount /speccpu
+#umount /speccpu_run
