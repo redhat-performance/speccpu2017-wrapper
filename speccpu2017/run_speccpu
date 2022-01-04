@@ -280,8 +280,8 @@ else
 	if [[ $gcc_version -lt 10 ]]; then
 		sed "s/   preENV_LD_LIBRARY_PATH/#   preENV_LD_LIBRARY_PATH/g" /tmp/foo >  ${to_home_root}/${to_user}/default_spec.cfg
 	else
-		sed "s/#%define GCCge10  # EDIT: remove the/%define GCCge10  # EDIT: remove the/g" /tmp/foo > /tmp/foo
-		sed "s/   preENV_LD_LIBRARY_PATH/#   preENV_LD_LIBRARY_PATH/g" /tmp/foo >  ${to_home_root}/${to_user}/default_spec.cfg
+		sed "s/#%define GCCge10  # EDIT: remove the/%define GCCge10  # EDIT: remove the/g" /tmp/foo > /tmp/foo1
+		sed "s/   preENV_LD_LIBRARY_PATH/#   preENV_LD_LIBRARY_PATH/g" /tmp/foo1 >  ${to_home_root}/${to_user}/default_spec.cfg
 	fi
 
 	spec_config=${to_home_root}/${to_user}/default_spec.cfg
