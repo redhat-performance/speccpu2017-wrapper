@@ -102,7 +102,7 @@ for arg in "$@"; do
 	#
 	# We do the usage check here, as we do not want to be calling
 	# the common parsers then checking for usage here.  Doing so will
-	# result in the script exiting with out giving the test options.
+	# result in the script exiting with out giving the test options. 
 	#
 	if [[ $arg == "--usage" ]]; then
 		usage $0
@@ -117,7 +117,7 @@ if [ ! -d "test_tools" ]; then
 	git clone $tools_git
 	if [ $? -ne 0 ]; then
 		echo pulling git $tools_git failed.
-	exit
+	exit 1
 	fi
 fi
 
@@ -311,3 +311,4 @@ else
 fi
 umount /speccpu
 umount /speccpu_run
+exit 0
