@@ -25,8 +25,6 @@
 #
 test_name=speccpu2017
 arguments="$@"
-chars=`echo $0 | awk -v RS='/' 'END{print NR-1}'`
-run_dir=`echo $0 | cut -d'/' -f 1-${chars}`
 
 setup_done=0
 run_user="none"
@@ -37,6 +35,20 @@ test_prefix="none"
 tools_git=https://github.com/dvalinrh/test_tools
 disk_to_use=""
 spec_config=""
+
+curdir=`pwd`
+if [[ $0 == "./"* ]]; then
+	chars=`echo $0 | awk -v RS='/' 'END{print NR-1}'`
+	if [[ $chars == 1 ]]; then
+		run_dir=`pwd`
+	else
+		run_dir=`echo $0 | cut -d'/' -f 1-${chars} | cut -d'.' -f2-`
+		run_dir="${curdir}${run_dir}"
+	fi
+else
+	chars=`echo $0 | awk -v RS='/' 'END{print NR-1}'`
+	run_dir=`echo $0 | cut -d'/' -f 1-${chars}`
+fi
 
 usage()
 {
@@ -225,8 +237,9 @@ fi
 
 if [ $to_pbench -eq 1 ]; then
 	source ~/.bashrc
-	echo $TOOLS_BIN/execute_pbench --cmd_executing "$0" $arguments --test ${test_name} --spacing 11
-	$TOOLS_BIN/execute_pbench --cmd_executing "$0" $arguments --test ${test_name} --spacing 11
+	cd $curdir
+	echo $TOOLS_BIN/execute_via_pbench --cmd_executing "$0" $arguments --test ${test_name} --spacing 11
+	$TOOLS_BIN/execute_via_pbench --cmd_executing "$0" $arguments --test ${test_name} --spacing 11
 else
 	if [[ ! -f "/speccpu/shrc" ]]; then
 		if [[ $disks_to_use == "" ]] || [[ $disks_to_use == "grab_disks" ]]; then
@@ -305,6 +318,7 @@ else
 	cd /tmp
 	RESULTSDIR=results_speccpu_${to_tuned_setting}_$(date "+%Y.%m.%d-%H.%M.%S")
 	mkdir -p ${RESULTSDIR}/run_results
+	cp ${curdir}/meta_data.yml ${RESULTSDIR}
 	ln -s ${RESULTSDIR} results_pbench_speccpu_${to_tuned_setting}
 
 	pushd /speccpu_run/result
