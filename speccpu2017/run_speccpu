@@ -25,6 +25,16 @@
 #
 test_name=speccpu2017
 arguments="$@"
+run_status="Ran"
+
+if [ ! -f "/tmp/${test_name}".out ]; then
+	command="${0} $@"
+	echo $command
+	$command &> /tmp/${test_name}.out
+	cat /tmp/${test_name}.out
+	rm /tmp/${test_name}.out
+	exit
+fi
 
 setup_done=0
 run_user="none"
@@ -96,6 +106,10 @@ generate_results_csv()
 			fi
 			echo $output >> ../$out_file
 		done < "data"
+		grep -qi error ../$out_file
+		if [ $? -ne 0 ]; then
+			run_status="Failed"
+		fi
 		cd ..
 	done
 	rm -rf why_the_hell
@@ -325,6 +339,8 @@ else
 	generate_results_csv
 	popd
 	cp -R /speccpu_run/result/* ${RESULTSDIR}/run_results
+	mv /tmp/${test_name}.out ${RESULTSDIR}
+	echo $run_status >> ${RESULTSDIR}/test_results_report
 	tar hcf results_${test_name}_${to_tuned_setting}.tar  $RESULTSDIR
 	tar hcf results_pbench_${test_name}_${to_tuned_setting}.tar  $RESULTSDIR
 fi
