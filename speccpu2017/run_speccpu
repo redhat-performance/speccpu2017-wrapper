@@ -3,7 +3,7 @@
 #
 #                         License
 #
-# Copyright (C) 2021  David Valin dvalin@redhat.com
+# Copyright (C) 2022  David Valin dvalin@redhat.com
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -167,6 +167,7 @@ fi
 # to_tuned_setting: tuned setting
 #
 
+${curdir}/test_tools/gather_data ${curdir}
 source test_tools/general_setup "$@"
 
 
@@ -332,7 +333,7 @@ else
 	cd /tmp
 	RESULTSDIR=results_speccpu_${to_tuned_setting}_$(date "+%Y.%m.%d-%H.%M.%S")
 	mkdir -p ${RESULTSDIR}/run_results
-	cp ${curdir}/meta_data.yml ${RESULTSDIR}
+	${curdir}/test_tools/move_data $curdir $results_dir
 	ln -s ${RESULTSDIR} results_pbench_speccpu_${to_tuned_setting}
 
 	pushd /speccpu_run/result
