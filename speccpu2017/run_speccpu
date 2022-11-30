@@ -344,7 +344,8 @@ else
 	echo $run_status >> ${RESULTSDIR}/test_results_report
 	tar hcf results_${test_name}_${to_tuned_setting}.tar  $RESULTSDIR
 	rm -f results_pbench.tar
-	find -L $RESULTSDIR  -type f | tar --transform 's/.*\///g' -cf results_pbench.tar --files-from=/dev/stdin
+	working_dir=`ls -rtd /tmp/results*${test_name}* | grep -v tar | tail -1`
+	find -L $working_dir  -type f | tar --transform 's/.*\///g' -cf results_pbench.tar --files-from=/dev/stdin
 	tar hcf results_pbench_${test_name}_${to_tuned_setting}.tar  $RESULTSDIR
 fi
 umount /speccpu
