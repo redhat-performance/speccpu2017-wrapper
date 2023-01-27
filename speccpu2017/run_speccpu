@@ -278,10 +278,10 @@ else
 			echo Error: failed to mount /dev/${disk} on to /speccpu_run
 			exit 1
 		fi
-		echo mount  -t iso9660 /${to_home_root}/${to_user}/cpu2017-1*.iso /speccpu
-		mount  -t iso9660 /${to_home_root}/${to_user}/cpu2017*.iso /speccpu
+		echo mount  -t iso9660 /${to_home_root}/${to_user}/uploads/cpu2017-1*.iso /speccpu
+		mount  -t iso9660 /${to_home_root}/${to_user}/uploads/cpu2017*.iso /speccpu
 		if [ $? -ne 0 ]; then
-			echo Error: failed to mount /${to_home_root}/${to_user}/cpu2017*.iso /speccpu
+			echo Error: failed to mount /${to_home_root}/${to_user}/uploads/cpu2017*.iso /speccpu
 			exit 1
 		fi
 		echo /speccpu_run > /tmp/options
