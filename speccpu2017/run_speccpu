@@ -360,7 +360,7 @@ else
 		if [ -d "/${to_home_root}/uploads" ] || [ -l "/${to_home_root}/uploads" ]; then
 			uploads="/${to_home_root}/uploads"
 		else
-			uploads="/${to_user}/uploads"
+			uploads="/${to_home_root}${to_user}/uploads"
 		fi
 		echo mount  -t iso9660 $uploads/cpu2017-1*.iso /speccpu
 		mount  -t iso9660 $uploads/cpu2017*.iso /speccpu
