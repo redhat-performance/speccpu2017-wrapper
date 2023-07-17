@@ -26,14 +26,83 @@
 test_name=speccpu2017
 arguments="$@"
 run_status="Ran"
+gen_args_back="$@"
+disks_found=0
+
+disk_options=""
+provide_disks()
+{
+	echo You need to designate disks, following are currently not mounted.
+	tools_bin/grab_disks grab_disks
+	cat disks
+	echo "Enter comma separated list of devices to use: "
+	read devices_to_use
+	device_list=`echo $devices_to_use | sed "s/,/,\/dev\//g"`
+	device_list=/dev/${device_list}
+	disk_options="--disks ${device_list}"
+}
+
+exit_out()
+{
+	echo $1
+	exit $2
+}
+
+give_usage=0
+i=1
+j=$#
+
+while [ $i -le $j ]
+do
+        #
+        # Ansible causing problems again, getting passed }} for some reason from random workloads, filter it out.
+        #
+        case "$1" in
+		--disks)
+			disks_found=1
+		;;
+		--usage)
+			give_usage=1
+		;;
+		--)
+			break
+		;;
+		*)
+		;;
+	esac
+	i=$((i + 1))
+	shift 1
+done
+
+usage()
+{
+	echo "Usage:"
+	echo "  --copies: number of copies of speccpu2017 to run.  Default is nprocs"
+	echo "  --spec_config: Spec configuration file to use, default is  ${spec_config}"
+	echo "  --test: comma separated list of speccpu2017 tests running."
+	echo "  --test_prefix: prefix name of the test results"
+	echo "  --usage: this is usage message"
+	source test_tools/general_setup --usage
+}
+
+if [ $give_usage -eq 1 ]; then 
+	set -- ${gen_args_back}
+	usage $0
+fi
+
+if [ $disks_found -eq 0 ]; then
+        provide_disks
+fi
+
+set -- ${gen_args_back}
 
 if [ ! -f "/tmp/${test_name}".out ]; then
-	command="${0} $@"
+	command="${0} $@ $disk_options"
 	echo $command
 	$command &> /tmp/${test_name}.out
 	cat /tmp/${test_name}.out
 	rm /tmp/${test_name}.out
-	exit
+	exit 0
 fi
 
 setup_done=0
@@ -55,21 +124,16 @@ if [[ $0 == "./"* ]]; then
 		run_dir=`echo $0 | cut -d'/' -f 1-${chars} | cut -d'.' -f2-`
 		run_dir="${curdir}${run_dir}"
 	fi
+elif [[ $0 != "/"* ]]; then
+	dir=`echo $0 | rev | cut -d'/' -f2- | rev`
+	run_dir="${curdir}/${dir}"
 else
 	chars=`echo $0 | awk -v RS='/' 'END{print NR-1}'`
 	run_dir=`echo $0 | cut -d'/' -f 1-${chars}`
+	if [[ $run_dir != "/"* ]]; then
+		run_dir=${curdir}/${run_dir}
+	fi
 fi
-
-usage()
-{
-	echo "Usage:"
-	echo "  --copies: number of copies of speccpu2017 to run.  Default is nprocs"
-	echo "  --spec_config: Spec configuration file to use, default is  ${spec_config}"
-	echo "  --test: comma separated list of speccpu2017 tests running."
-	echo "  --test_prefix: prefix name of the test results"
-	echo "  --usage: this is usage message"
-	source test_tools/general_setup --usage
-}
 
 generate_results_csv()
 {
@@ -143,8 +207,7 @@ done
 if [ ! -d "test_tools" ]; then
 	git clone $tools_git
 	if [ $? -ne 0 ]; then
-		echo pulling git $tools_git failed.
-	exit 1
+		exit_out "Error: pulling git $tools_git failed." 1
 	fi
 fi
 
@@ -169,7 +232,6 @@ fi
 
 ${curdir}/test_tools/gather_data ${curdir}
 source test_tools/general_setup "$@"
-
 
 # Define options
 #
@@ -241,6 +303,17 @@ while [[ $# -gt 0 ]]; do
         esac
 done
 
+if [[ $disks_to_use != "grab_disks" ]]; then
+	device_list=`echo $disks_to_use | sed "s/,/ /g"`
+	for item in $device_list; do
+		value=`file $item`
+		echo $value | grep "block special" > /dev/null
+		if [ $? -ne 0 ]; then
+			exit_out "Error: $item is not a block device" 1
+		fi
+	done
+fi
+
 if [[ $spec_config == "" ]]; then
 	model_name=`cat /proc/cpuinfo | grep "model name" | sort -u`
 	if [[ $model_name == "*Intel"* ]]; then
@@ -248,6 +321,12 @@ if [[ $spec_config == "" ]]; then
 	else
 		spec_config="/speccpu_run/config/Example-gcc-linux-aarch64.cfg"
 	fi
+fi
+
+if [ -d /${to_home_root}/${to_user}/tools_bin ]; then
+	tools_bin="/${to_home_root}/${to_user}/tools_bin"
+else
+	tools_bin="/${to_home_root}/tools_bin"
 fi
 
 if [ $to_pbench -eq 1 ]; then
@@ -258,7 +337,7 @@ if [ $to_pbench -eq 1 ]; then
 else
 	if [[ ! -f "/speccpu/shrc" ]]; then
 		if [[ $disks_to_use == "" ]] || [[ $disks_to_use == "grab_disks" ]]; then
-			/${to_home_root}/${to_user}/tools_bin/grab_disks
+			$tools_bin/grab_disks
 			disk=`cat disks | cut -d' ' -f 1`
 		else
 			echo $disks_to_use
@@ -266,8 +345,7 @@ else
 		fi
 		mkfs.xfs -f /dev/${disk}
 		if [ $? -ne 0 ]; then
-			echo Error: Failed to make filesystem using /dev/${disk}
-			exit 1
+			exit_out "Error: Failed to make filesystem using /dev/${disk}" 1
 		fi
 		mkdir /speccpu
 		rm -rf /speccpu_run
@@ -275,22 +353,26 @@ else
 		echo mount /dev/${disk} /speccpu_run
 		mount /dev/${disk} /speccpu_run
 		if [ $? -ne 0 ]; then
-			echo Error: failed to mount /dev/${disk} on to /speccpu_run
-			exit 1
+			exit_out "Error: failed to mount /dev/${disk} on to /speccpu_run" 1
 		fi
-		echo mount  -t iso9660 /${to_home_root}/${to_user}/uploads/cpu2017-1*.iso /speccpu
-		mount  -t iso9660 /${to_home_root}/${to_user}/uploads/cpu2017*.iso /speccpu
+		echo /${to_home_root}/uploads
+		echo "/${to_user}/uploads"
+		if [ -d "/${to_home_root}/uploads" ] || [ -l "/${to_home_root}/uploads" ]; then
+			uploads="/${to_home_root}/uploads"
+		else
+			uploads="/${to_user}/uploads"
+		fi
+		echo mount  -t iso9660 $uploads/cpu2017-1*.iso /speccpu
+		mount  -t iso9660 $uploads/cpu2017*.iso /speccpu
 		if [ $? -ne 0 ]; then
-			echo Error: failed to mount /${to_home_root}/${to_user}/uploads/cpu2017*.iso /speccpu
-			exit 1
+			exit_out "Error: failed to mount ${uploads}/cpu2017*.iso /speccpu" 1
 		fi
 		echo /speccpu_run > /tmp/options
 		echo yes >> /tmp/options
 		cd /speccpu
 		./install.sh < /tmp/options
 		if [ $? -ne 0 ]; then
-			echo Error: install.sh failed.
-			exit 1
+			exit_out  "Error: install.sh failed." 1
 		fi
 		echo install complete
 		#
@@ -298,8 +380,7 @@ else
 		#
 		version=`cat /speccpu/version.txt | sed "s/\.//g"`
 		if [[ $version -lt 118 ]]; then
-			echo Error, need version 1.1.8 or later
-			exit 1
+			exit_out "Error, need version 1.1.8 or later" 1
 		fi
 	fi
 	sed "s/%   define  gcc_dir        \"\/opt\/rh\/devtoolset-9\/root\/usr\"/%   define  gcc_dir \/usr/g" $spec_config > /tmp/foo
@@ -310,14 +391,14 @@ else
 	#
 	sed "s/%   define model        -mabi=lp64/%   define model        \"\"/g" /tmp/foo1 > /tmp/foo
 	gcc_version=`gcc --version|grep ^gcc|awk '{print $3}' | cut -d'.' -f 1`
+	spec_config="/tmp/default_spec.cfg"
 	if [[ $gcc_version -lt 10 ]]; then
-		sed "s/   preENV_LD_LIBRARY_PATH/#   preENV_LD_LIBRARY_PATH/g" /tmp/foo >  ${to_home_root}/${to_user}/default_spec.cfg
+		sed "s/   preENV_LD_LIBRARY_PATH/#   preENV_LD_LIBRARY_PATH/g" /tmp/foo >  $spec_config
 	else
 		sed "s/#%define GCCge10  # EDIT: remove the/%define GCCge10  # EDIT: remove the/g" /tmp/foo > /tmp/foo1
-		sed "s/   preENV_LD_LIBRARY_PATH/#   preENV_LD_LIBRARY_PATH/g" /tmp/foo1 >  ${to_home_root}/${to_user}/default_spec.cfg
+		sed "s/   preENV_LD_LIBRARY_PATH/#   preENV_LD_LIBRARY_PATH/g" /tmp/foo1 > $spec_config
 	fi
 
-	spec_config=${to_home_root}/${to_user}/default_spec.cfg
 	cd /speccpu_run
 	source shrc
 	if [[ $copies == "" ]]; then
