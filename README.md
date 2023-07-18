@@ -13,7 +13,7 @@ Packages required: bc,libnsl,gcc-gfortran
 
 To run:
 ```
-[root@hawkeye ~]# git clone https://github.com/redhat-performance/speecpu2017-wrapper
+[root@hawkeye ~]# git clone https://github.com/redhat-performance/speccpu2017-wrapper
 [root@hawkeye ~]# specpu2017-wrapper/speccpu2017/run_speccpu
 ```
 
