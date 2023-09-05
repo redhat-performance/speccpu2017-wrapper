@@ -290,7 +290,7 @@ while [[ $# -gt 0 ]]; do
 			copies=${2}
 			shift 2
 		;;
-		--disk)
+		--disks)
 			pbench_arg_list="${pbench_arg_list} $1 $2"
 			disk_to_use=${2}
 			shift 2
