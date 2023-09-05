@@ -420,6 +420,9 @@ else
 		if [ $? -ne 0 ]; then
 			exit_out "Error: Failed to make filesystem using /dev/${disk}" 1
 		fi
+		if [[ ! -d ${speccpu_run} ]]; then
+			mkdir ${speccpu_run}
+		fi
 		echo mount /dev/${disk} ${speccpu_run}
 		mount /dev/${disk} ${speccpu_run}
 		if [ $? -ne 0 ]; then
