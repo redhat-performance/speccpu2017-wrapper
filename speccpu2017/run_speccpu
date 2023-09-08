@@ -102,6 +102,7 @@ usage()
 	echo "  --speccpu_run <path>: mount point of device to run speccpu from"
 	echo "  --speccpu_run_dir <dir>: If provided where the kit is installed at"
 	echo "  --uploads <path>: location to find the iso file in".
+	echo "  --use_mfs: use the filesystem with the most free space to install speccpu on."
 	source test_tools/general_setup --usage
 }
 
