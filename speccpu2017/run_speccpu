@@ -35,6 +35,8 @@ speccpu_iso_mnt="/speccpu"
 speccpu_iso_file=""
 uploads=""
 give_usage=0
+use_mfs=""
+run_loca_selected=0
 
 disk_options=""
 provide_disks()
@@ -248,7 +250,6 @@ fi
 # to_tuned_setting: tuned setting
 #
 
-${curdir}/test_tools/gather_data ${curdir}
 source test_tools/general_setup "$@"
 
 # Define options
@@ -269,6 +270,7 @@ ARGUMENT_LIST=(
 
 NO_ARGUMENTS=(
 	"installed"
+	"use_mfs"
 	"usage"
 )
 
@@ -291,6 +293,11 @@ while [[ $# -gt 0 ]]; do
 			shift 2
 		;;
 		--disks)
+			if [ $run_loca_selected -ne 0 ]; then
+				exit_out "Error: --disks run location already designated, cannot designate multiple"
+			fi
+			run_loca_selected=1
+
 			pbench_arg_list="${pbench_arg_list} $1 $2"
 			disk_to_use=${2}
 			shift 2
@@ -321,11 +328,27 @@ while [[ $# -gt 0 ]]; do
 			shift 2
 		;;
 		--speccpu_run_dir)
+			if [ $run_loca_selected -ne 0 ]; then
+				exit_out "Error: --speccpu_run_dir run location already designated, cannot designate multiple"
+			fi
+			run_loca_selected=1
 			pbench_arg_list="${pbench_arg_list} $1 $2"
 			speccpu_run=${2}
 			speccpu_run_dir=${2}
 			shift 2
 		;;
+		--use_mfs)
+			if [ $run_loca_selected -ne 0 ]; then
+				exit_out "Error: --use_mfs run location already designated, cannot designate multiple"
+			fi
+			run_loca_selected=1
+			pbench_arg_list="${pbench_arg_list} $1"
+			use_mfs=`df --output=avail,target,source | grep -v Mounted | grep -v tmpfs | sort -n | tail -1 | xargs | sed "s/ /:/g" | cut -d: -f2`
+			speccpu_run=$use_mfs
+			speccpu_run_dir=$use_mfs
+			shift 1
+		;;
+
 		--test)
 			pbench_arg_list="${pbench_arg_list} $1 $2"
 			tests=${2}
@@ -471,6 +494,11 @@ else
 	fi
 	tests_to_run=`echo $tests | sed "s/,/ /g"`
 	
+	#
+	# Make sure clean build
+	#
+	bin/runcpu --action=clobber
+
 	for test_to_run in $tests_to_run
 	do
 		runcpu --config=${spec_config} --copies=$copies $test_to_run
