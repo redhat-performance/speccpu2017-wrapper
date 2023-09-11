@@ -35,8 +35,8 @@ speccpu_iso_mnt="/speccpu"
 speccpu_iso_file=""
 uploads=""
 give_usage=0
-use_mfs=""
-run_loca_selected=0
+use_fs=""
+run_loc_selected=0
 
 disk_options=""
 provide_disks()
@@ -102,7 +102,7 @@ usage()
 	echo "  --speccpu_run <path>: mount point of device to run speccpu from"
 	echo "  --speccpu_run_dir <dir>: If provided where the kit is installed at"
 	echo "  --uploads <path>: location to find the iso file in".
-	echo "  --use_mfs: use the filesystem with the most free space to install speccpu on."
+	echo "  --no_disk: use the filesystem with the most free space to install speccpu on."
 	source test_tools/general_setup --usage
 }
 
@@ -271,7 +271,7 @@ ARGUMENT_LIST=(
 
 NO_ARGUMENTS=(
 	"installed"
-	"use_mfs"
+	"no_disk"
 	"usage"
 )
 
@@ -294,10 +294,10 @@ while [[ $# -gt 0 ]]; do
 			shift 2
 		;;
 		--disks)
-			if [ $run_loca_selected -ne 0 ]; then
+			if [ $run_loc_selected -ne 0 ]; then
 				exit_out "Error: --disks run location already designated, cannot designate multiple"
 			fi
-			run_loca_selected=1
+			run_loc_selected=1
 
 			pbench_arg_list="${pbench_arg_list} $1 $2"
 			disk_to_use=${2}
@@ -329,24 +329,24 @@ while [[ $# -gt 0 ]]; do
 			shift 2
 		;;
 		--speccpu_run_dir)
-			if [ $run_loca_selected -ne 0 ]; then
+			if [ $run_loc_selected -ne 0 ]; then
 				exit_out "Error: --speccpu_run_dir run location already designated, cannot designate multiple"
 			fi
-			run_loca_selected=1
+			run_loc_selected=1
 			pbench_arg_list="${pbench_arg_list} $1 $2"
 			speccpu_run=${2}
 			speccpu_run_dir=${2}
 			shift 2
 		;;
-		--use_mfs)
-			if [ $run_loca_selected -ne 0 ]; then
-				exit_out "Error: --use_mfs run location already designated, cannot designate multiple"
+		--no_disk)
+			if [ $run_loc_selected -ne 0 ]; then
+				exit_out "Error: --no_disk run location already designated, cannot designate multiple"
 			fi
-			run_loca_selected=1
+			run_loc_selected=1
 			pbench_arg_list="${pbench_arg_list} $1"
-			use_mfs=`df --output=avail,target,source | grep -v Mounted | grep -v tmpfs | sort -n | tail -1 | xargs | sed "s/ /:/g" | cut -d: -f2`
-			speccpu_run=$use_mfs
-			speccpu_run_dir=$use_mfs
+			use_fs=`df --output=avail,target,source | grep -v Mounted | grep -v tmpfs | sort -n | tail -1 | xargs | sed "s/ /:/g" | cut -d: -f2`
+			speccpu_run=$use_fs
+			speccpu_run_dir=$use_fs
 			shift 1
 		;;
 
