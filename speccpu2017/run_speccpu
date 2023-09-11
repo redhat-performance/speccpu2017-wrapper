@@ -28,6 +28,15 @@ arguments="$@"
 run_status="Ran"
 gen_args_back="$@"
 disks_found=0
+installed=0
+speccpu_run_dir=""
+speccpu_run="/speccpu_run"
+speccpu_iso_mnt="/speccpu"
+speccpu_iso_file=""
+uploads=""
+give_usage=0
+use_fs=""
+run_loc_selected=0
 
 disk_options=""
 provide_disks()
@@ -48,7 +57,6 @@ exit_out()
 	exit $2
 }
 
-give_usage=0
 i=1
 j=$#
 
@@ -59,6 +67,12 @@ do
         #
         case "$1" in
 		--disks)
+			disks_found=1
+		;;
+		--speccpu_run_dir)
+			disks_found=1
+		;;
+		--installed)
 			disks_found=1
 		;;
 		--usage)
@@ -77,11 +91,18 @@ done
 usage()
 {
 	echo "Usage:"
-	echo "  --copies: number of copies of speccpu2017 to run.  Default is nprocs"
-	echo "  --spec_config: Spec configuration file to use, default is  ${spec_config}"
-	echo "  --test: comma separated list of speccpu2017 tests running."
-	echo "  --test_prefix: prefix name of the test results"
-	echo "  --usage: this is usage message"
+	echo "  --copies x: number of copies of speccpu2017 to run.  Default is nprocs"
+	echo "  --disk <disk path>:  Disk to use for speccpu2017 run area"
+	echo "  --installed: Already installed kit"
+	echo "  --spec_config <config file.: spec config file to use, default is what is in"
+	echo "    speccpu2017 kit."
+	echo "  --speccpu_iso_file <path>e: speccpu2017 iso file to use"
+	echo "  --speccpu_iso_mnt <mount point>: iso mount point.  Default is /speccpu.  If mounted, will not"
+	echo "    attempt to remount."
+	echo "  --speccpu_run <path>: mount point of device to run speccpu from"
+	echo "  --speccpu_run_dir <dir>: If provided where the kit is installed at"
+	echo "  --uploads <path>: location to find the iso file in".
+	echo "  --no_disk: use the filesystem with the most free space to install speccpu on."
 	source test_tools/general_setup --usage
 }
 
@@ -230,7 +251,6 @@ fi
 # to_tuned_setting: tuned setting
 #
 
-${curdir}/test_tools/gather_data ${curdir}
 source test_tools/general_setup "$@"
 
 # Define options
@@ -240,11 +260,18 @@ ARGUMENT_LIST=(
 	"disks"
 	"run_user"
 	"spec_config"
+	"speccpu_iso_file"
+	"speccpu_iso_mnt"
+	"speccpu_run"
+	"speccpu_run_dir"
 	"test"
 	"test_prefix"
+	"uploads"
 )
 
 NO_ARGUMENTS=(
+	"installed"
+	"no_disk"
 	"usage"
 )
 
@@ -267,24 +294,80 @@ while [[ $# -gt 0 ]]; do
 			shift 2
 		;;
 		--disks)
+			if [ $run_loc_selected -ne 0 ]; then
+				exit_out "Error: --disks run location already designated, cannot designate multiple"
+			fi
+			run_loc_selected=1
+
 			pbench_arg_list="${pbench_arg_list} $1 $2"
-			disks_to_use=${2}
+			disk_to_use=${2}
 			shift 2
 		;;
+		--installed)
+			pbench_arg_list="${pbench_arg_list} $1"
+			installed=1
+			shift 1
+		;;
 		--spec_config)
+			pbench_arg_list="${pbench_arg_list} $1 $2"
 			spec_config=${2}
 			shift 2
-			;;
+		;;
+		--speccpu_iso_file)
+			pbench_arg_list="${pbench_arg_list} $1 $2"
+			speccpu_iso_file=${2}
+			shift 2
+		;;
+		--speccpu_iso_mnt)
+			pbench_arg_list="${pbench_arg_list} $1 $2"
+			speccpu_iso_mnt=${2}
+			shift 2
+		;;
+		--speccpu_run)
+			pbench_arg_list="${pbench_arg_list} $1 $2"
+			speccpu_run=${2}
+			shift 2
+		;;
+		--speccpu_run_dir)
+			if [ $run_loc_selected -ne 0 ]; then
+				exit_out "Error: --speccpu_run_dir run location already designated, cannot designate multiple"
+			fi
+			run_loc_selected=1
+			pbench_arg_list="${pbench_arg_list} $1 $2"
+			speccpu_run=${2}
+			speccpu_run_dir=${2}
+			shift 2
+		;;
+		--no_disk)
+			if [ $run_loc_selected -ne 0 ]; then
+				exit_out "Error: --no_disk run location already designated, cannot designate multiple"
+			fi
+			run_loc_selected=1
+			pbench_arg_list="${pbench_arg_list} $1"
+			use_fs=`df --output=avail,target,source | grep -v Mounted | grep -v tmpfs | sort -n | tail -1 | xargs | sed "s/ /:/g" | cut -d: -f2`
+			speccpu_run=$use_fs
+			speccpu_run_dir=$use_fs
+			shift 1
+		;;
+
 		--test)
+			pbench_arg_list="${pbench_arg_list} $1 $2"
 			tests=${2}
 			shift 2
 		;;
 		--test_prefix)
+			pbench_arg_list="${pbench_arg_list} $1 $2"
 			test_prefix=${2}
 			shift 2
 		;;
 		--tools_git)
+			pbench_arg_list="${pbench_arg_list} $1 $2"
 			tools_git=$2
+			shift 2
+		;;
+		--uploads)
+			pbench_arg_list="${pbench_arg_list} $1 $2"
+			uploads=$2
 			shift 2
 		;;
 		--usage)
@@ -303,8 +386,8 @@ while [[ $# -gt 0 ]]; do
         esac
 done
 
-if [[ $disks_to_use != "grab_disks" ]]; then
-	device_list=`echo $disks_to_use | sed "s/,/ /g"`
+if [ $installed -eq 0 ] && [[ $disk_to_use != "grab_disks" ]] && [[ $speccpu_run_dir == "" ]]; then
+	device_list=`echo $disk_to_use | sed "s/,/ /g"`
 	for item in $device_list; do
 		value=`file $item`
 		echo $value | grep "block special" > /dev/null
@@ -316,10 +399,10 @@ fi
 
 if [[ $spec_config == "" ]]; then
 	model_name=`cat /proc/cpuinfo | grep "model name" | sort -u`
-	if [[ $model_name == "*Intel"* ]]; then
-		spec_config="/speccpu_run/config/Example-gcc-linux-x86.cfg"
+	if [[ $model_name == "*Intel"* ]] || [[ $model_name == "*AMD"* ]]; then
+		spec_config="${speccpu_run}/config/Example-gcc-linux-x86.cfg"
 	else
-		spec_config="/speccpu_run/config/Example-gcc-linux-aarch64.cfg"
+		spec_config="${speccpu_run}/config/Example-gcc-linux-aarch64.cfg"
 	fi
 fi
 
@@ -335,53 +418,59 @@ if [ $to_pbench -eq 1 ]; then
 	echo $TOOLS_BIN/execute_via_pbench --cmd_executing "$0" $arguments --test ${test_name} --spacing 11
 	$TOOLS_BIN/execute_via_pbench --cmd_executing "$0" $arguments --test ${test_name} --spacing 11
 else
-	if [[ ! -f "/speccpu/shrc" ]]; then
-		if [[ $disks_to_use == "" ]] || [[ $disks_to_use == "grab_disks" ]]; then
+	if [[ ! -f "${speccpu_iso_mnt}/shrc" ]]; then
+		mkdir ${speccpu_iso_mnt}
+		if [[ $uploads == "" ]]; then
+			uploads="/${to_home_root}/${to_user}/uploads"
+		fi
+		if [[ $speccpu_iso_file == "" ]]; then
+			speccpu_iso_file="$uploads/cpu2017-1*.iso"
+		fi
+		echo mount  -t iso9660 $speccpu_iso_file ${speccpu_iso_mnt}
+		mount  -t iso9660 $speccpu_iso_file ${speccpu_iso_mnt}
+		if [ $? -ne 0 ]; then
+			exit_out "Error: failed to mount $speccpu_iso_file ${speccpu_iso_mnt}" 1
+		fi
+	fi
+	if [[ $speccpu_run_dir == "" ]]; then
+		if [[ $disk_to_use == "" ]] || [[ $disk_to_use == "grab_disks" ]]; then
 			$tools_bin/grab_disks
 			disk=`cat disks | cut -d' ' -f 1`
 		else
-			echo $disks_to_use
-			disk=`echo $disks_to_use | cut -d',' -f 1 | cut -d'/' -f3-`
+			echo $disk_to_use
+			disk=`echo $disk_to_use | cut -d',' -f 1 | cut -d'/' -f3-`
 		fi
 		mkfs.xfs -f /dev/${disk}
 		if [ $? -ne 0 ]; then
 			exit_out "Error: Failed to make filesystem using /dev/${disk}" 1
 		fi
-		mkdir /speccpu
-		rm -rf /speccpu_run
-		mkdir /speccpu_run
-		echo mount /dev/${disk} /speccpu_run
-		mount /dev/${disk} /speccpu_run
+		if [[ ! -d ${speccpu_run} ]]; then
+			mkdir ${speccpu_run}
+		fi
+		echo mount /dev/${disk} ${speccpu_run}
+		mount /dev/${disk} ${speccpu_run}
 		if [ $? -ne 0 ]; then
-			exit_out "Error: failed to mount /dev/${disk} on to /speccpu_run" 1
+			exit_out "Error: failed to mount /dev/${disk} on to ${speccpu_run}" 1
 		fi
-		echo /${to_home_root}/uploads
-		echo "/${to_user}/uploads"
-		if [ -d "/${to_home_root}/uploads" ] || [ -l "/${to_home_root}/uploads" ]; then
-			uploads="/${to_home_root}/uploads"
-		else
-			uploads="/${to_home_root}/${to_user}/uploads"
-		fi
-		echo mount  -t iso9660 $uploads/cpu2017-1*.iso /speccpu
-		mount  -t iso9660 $uploads/cpu2017*.iso /speccpu
-		if [ $? -ne 0 ]; then
-			exit_out "Error: failed to mount ${uploads}/cpu2017*.iso /speccpu" 1
-		fi
-		echo /speccpu_run > /tmp/options
-		echo yes >> /tmp/options
-		cd /speccpu
-		./install.sh < /tmp/options
-		if [ $? -ne 0 ]; then
-			exit_out  "Error: install.sh failed." 1
-		fi
-		echo install complete
-		#
-		# Verify running at least 1.1.8
-		#
-		version=`cat /speccpu/version.txt | sed "s/\.//g"`
-		if [[ $version -lt 118 ]]; then
-			exit_out "Error, need version 1.1.8 or later" 1
-		fi
+		rm -rf ${speccpu_run}
+		mkdir ${speccpu_run}
+	else
+		disk="none"
+	fi
+	echo ${speccpu_run} > /tmp/options
+	echo yes >> /tmp/options
+	cd ${speccpu_iso_mnt}
+	./install.sh < /tmp/options
+	if [ $? -ne 0 ]; then
+		exit_out  "Error: install.sh failed." 1
+	fi
+	echo install complete
+	#
+	# Verify running at least 1.1.8
+	#
+	version=`cat ${speccpu_iso_mnt}/version.txt | sed "s/\.//g"`
+	if [[ $version -lt 118 ]]; then
+		exit_out "Error, need version 1.1.8 or later" 1
 	fi
 	sed "s/%   define  gcc_dir        \"\/opt\/rh\/devtoolset-9\/root\/usr\"/%   define  gcc_dir \/usr/g" $spec_config > /tmp/foo
 	sed "s/tune                 = base,peak/tune                 = base/g" /tmp/foo > /tmp/foo1
@@ -399,13 +488,18 @@ else
 		sed "s/   preENV_LD_LIBRARY_PATH/#   preENV_LD_LIBRARY_PATH/g" /tmp/foo1 > $spec_config
 	fi
 
-	cd /speccpu_run
+	cd ${speccpu_run}
 	source shrc
 	if [[ $copies == "" ]]; then
 		copies=`nproc`
 	fi
 	tests_to_run=`echo $tests | sed "s/,/ /g"`
 	
+	#
+	# Make sure clean build
+	#
+	bin/runcpu --action=clobber
+
 	for test_to_run in $tests_to_run
 	do
 		runcpu --config=${spec_config} --copies=$copies $test_to_run
@@ -417,10 +511,10 @@ else
 	${curdir}/test_tools/move_data $curdir $results_dir
 	ln -s ${RESULTSDIR} results_pbench_speccpu_${to_tuned_setting}
 
-	pushd /speccpu_run/result
+	pushd ${speccpu_run}/result
 	generate_results_csv
 	popd
-	cp -R /speccpu_run/result/* ${RESULTSDIR}/run_results
+	cp -R ${speccpu_run}/result/* ${RESULTSDIR}/run_results
 	mv /tmp/${test_name}.out ${RESULTSDIR}
 	echo $run_status >> ${RESULTSDIR}/test_results_report
 	tar hcf results_${test_name}_${to_tuned_setting}.tar  $RESULTSDIR
@@ -429,6 +523,9 @@ else
 	find -L $working_dir  -type f | tar --transform 's/.*\///g' -cf results_pbench.tar --files-from=/dev/stdin
 	tar hcf results_pbench_${test_name}_${to_tuned_setting}.tar  $RESULTSDIR
 fi
-umount /speccpu
-umount /speccpu_run
+
+if [ $installed -eq 0 ]; then
+	umount ${speccpu_iso_mnt}
+	umount ${speccpu_run}
+fi
 exit 0
