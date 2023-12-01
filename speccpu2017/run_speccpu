@@ -75,6 +75,9 @@ do
 		--installed)
 			disks_found=1
 		;;
+		--no_disk)
+			disks_found=1
+		;;
 		--usage)
 			give_usage=1
 		;;
