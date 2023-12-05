@@ -449,7 +449,8 @@ else
 			echo $disk_to_use
 			disk=`echo $disk_to_use | cut -d',' -f 1 | cut -d'/' -f3-`
 		fi
-		mkfs.$data_disk_fs -f /dev/${disk}
+		wipefs -a /dev/${disk}
+		mkfs.$data_disk_fs /dev/${disk}
 		if [ $? -ne 0 ]; then
 			exit_out "Error: Failed to make filesystem using /dev/${disk}" 1
 		fi
