@@ -37,6 +37,7 @@ uploads=""
 give_usage=0
 use_fs=""
 run_loc_selected=0
+data_disk_fs="xfs"
 
 disk_options=""
 provide_disks()
@@ -270,6 +271,7 @@ ARGUMENT_LIST=(
 	"test"
 	"test_prefix"
 	"uploads"
+	"disk_fs"
 )
 
 NO_ARGUMENTS=(
@@ -304,6 +306,10 @@ while [[ $# -gt 0 ]]; do
 
 			pbench_arg_list="${pbench_arg_list} $1 $2"
 			disk_to_use=${2}
+			shift 2
+		;;
+		--disk_fs)
+			data_disk_fs=$1
 			shift 2
 		;;
 		--installed)
@@ -443,7 +449,7 @@ else
 			echo $disk_to_use
 			disk=`echo $disk_to_use | cut -d',' -f 1 | cut -d'/' -f3-`
 		fi
-		mkfs.xfs -f /dev/${disk}
+		mkfs.$data_disk_fs -f /dev/${disk}
 		if [ $? -ne 0 ]; then
 			exit_out "Error: Failed to make filesystem using /dev/${disk}" 1
 		fi
