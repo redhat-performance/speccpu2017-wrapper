@@ -309,7 +309,7 @@ while [[ $# -gt 0 ]]; do
 			shift 2
 		;;
 		--disk_fs)
-			data_disk_fs=$1
+			data_disk_fs=$2
 			shift 2
 		;;
 		--installed)
