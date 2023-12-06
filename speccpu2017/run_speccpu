@@ -97,6 +97,7 @@ usage()
 	echo "Usage:"
 	echo "  --copies x: number of copies of speccpu2017 to run.  Default is nprocs"
 	echo "  --disk <disk path>:  Disk to use for speccpu2017 run area"
+	echo "  --disk_fs <fs>: Filesystem to format --disk to (default xfs)"
 	echo "  --installed: Already installed kit"
 	echo "  --spec_config <config file.: spec config file to use, default is what is in"
 	echo "    speccpu2017 kit."
