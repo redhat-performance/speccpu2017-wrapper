@@ -23,6 +23,7 @@
 # This script provides an automated means of running the speccpu kit, it is the 
 # end users responsibility to have a copy of the speccpu2017 kit.
 #
+version=""
 test_name=speccpu2017
 arguments="$@"
 run_status="Ran"
@@ -161,17 +162,17 @@ fi
 
 generate_results_csv()
 {
-	mkdir why_the_hell 2> /dev/null
+	mkdir work_around 2> /dev/null
 	for file in `ls *txt`; do
 		out_file=`echo $file | cut -d'.' -f1-4`.results.csv
 		start_data=0
 		#
-		# For some reason we read the wrong f'ing file if we try addressing
+		# For some reason we read the wrong file if we try addressing
 		# it via file, or in the current directory.  Work around it, should
 		# not be happening.
 		#
-		cp $file why_the_hell/data
-		cd why_the_hell
+		cp $file work_around/data
+		cd work_around
 		echo "Benchmarks:Base copies:Base Run Time:Base Rate" > ../$out_file
 		while IFS= read -r line
 		do
@@ -187,6 +188,7 @@ generate_results_csv()
 			value=`echo $line | cut -d' ' -f1-4`
 			checking=`echo $value | cut -d' ' -f 2`
 			if [[ $checking == "NR" ]]; then
+				run_status="Failed NR found in the results"
 				local_test_name=`echo $value | cut -d' ' -f 1`
 				output="${local_test_name}:::NR"
 			else
@@ -195,12 +197,12 @@ generate_results_csv()
 			echo $output >> ../$out_file
 		done < "data"
 		grep -qi error ../$out_file
-		if [ $? -ne 0 ]; then
-			run_status="Failed"
+		if [ $? -eq 0 ]; then
+			run_status="Failed: error detected"
 		fi
 		cd ..
 	done
-	rm -rf why_the_hell
+	rm -rf work_around
 }
 
 found=0
@@ -516,10 +518,13 @@ else
 
 	pushd ${speccpu_run}/result
 	generate_results_csv
-	popd
+	popd > /dev/null
 	cp -R ${speccpu_run}/result/* ${RESULTSDIR}/run_results
 	mv /tmp/${test_name}.out ${RESULTSDIR}
 	echo $run_status >> ${RESULTSDIR}/test_results_report
+	#
+	# pbench prep
+	#
 	tar hcf results_${test_name}_${to_tuned_setting}.tar  $RESULTSDIR
 	rm -f results_pbench.tar
 	working_dir=`ls -rtd /tmp/results*${test_name}* | grep -v tar | tail -1`
