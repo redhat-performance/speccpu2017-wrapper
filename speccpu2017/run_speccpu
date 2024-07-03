@@ -520,24 +520,25 @@ else
 
 	cd /tmp
 	RESULTSDIR=results_speccpu_${to_tuned_setting}_$(date "+%Y.%m.%d-%H.%M.%S")
-	mkdir -p ${RESULTSDIR}/run_results
-	${curdir}/test_tools/move_data $curdir $results_dir
+	mkdir -p ${RESULTSDIR}/result
+	${curdir}/test_tools/move_data $curdir $RESULTSDIR
 	ln -s ${RESULTSDIR} results_pbench_speccpu_${to_tuned_setting}
 
 	pushd ${speccpu_run}/result
 	generate_results_csv
 	popd > /dev/null
-	cp -R ${speccpu_run}/result/* ${RESULTSDIR}/run_results
+	cp -R ${speccpu_run}/result ${RESULTSDIR}
 	mv /tmp/${test_name}.out ${RESULTSDIR}
 	echo $run_status >> ${RESULTSDIR}/test_results_report
 	#
 	# pbench prep
 	#
-	tar hcf results_${test_name}_${to_tuned_setting}.tar  $RESULTSDIR
 	rm -f results_pbench.tar
 	working_dir=`ls -rtd /tmp/results*${test_name}* | grep -v tar | tail -1`
 	find -L $working_dir  -type f | tar --transform 's/.*\///g' -cf results_pbench.tar --files-from=/dev/stdin
 	tar hcf results_pbench_${test_name}_${to_tuned_setting}.tar  $RESULTSDIR
+	ln -s  results_pbench_${test_name}_${to_tuned_setting}.tar results_${test_name}_${to_tuned_setting}.tar
+	${curdir}/test_tools/save_results --curdir $curdir --home_root $to_home_root --tar_file /tmp/results_${test_name}_${to_tuned_setting}.tar --test_name $test_name --tuned_setting=$to_tuned_setting --version NONE --user $to_user
 fi
 
 if [ $installed -eq 0 ]; then
