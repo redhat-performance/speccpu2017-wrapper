@@ -127,8 +127,6 @@ if [ ! -f "/tmp/${test_name}".out ]; then
 	command="${0} $@ $disk_options"
 	echo $command
 	$command &> /tmp/${test_name}.out
-	cat /tmp/${test_name}.out
-	rm /tmp/${test_name}.out
 	exit 0
 fi
 
@@ -521,8 +519,6 @@ else
 	cd /tmp
 	RESULTSDIR=results_speccpu_${to_tuned_setting}_$(date "+%Y.%m.%d-%H.%M.%S")
 	mkdir -p ${RESULTSDIR}/result
-	${curdir}/test_tools/move_data $curdir $RESULTSDIR
-	ln -s ${RESULTSDIR} results_pbench_speccpu_${to_tuned_setting}
 
 	pushd ${speccpu_run}/result
 	generate_results_csv
@@ -545,4 +541,8 @@ if [ $installed -eq 0 ]; then
 	umount ${speccpu_iso_mnt}
 	umount ${speccpu_run}
 fi
+#
+# Remove speccpu temp files.
+#
+rm /tmp/default_spec.cfg.*
 exit 0
