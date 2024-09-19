@@ -195,7 +195,7 @@ generate_results_csv()
 				output=`echo $value | sed "s/ /:/g"`
 			fi
 
-			$TOOLS_BIN/test_header_info --front_matter --results_file "${out_file}" --host $to_configuration --sys_type $to_sys_type --tuned $to_tuned_setting --results_version $version --test_name $test_name
+			$TOOLS_BIN/test_header_info --front_matter --results_file "../$out_file" --host $to_configuration --sys_type $to_sys_type --tuned $to_tuned_setting --results_version $version --test_name $test_name
 
 			echo $output >> ../$out_file
 		done < "data"
