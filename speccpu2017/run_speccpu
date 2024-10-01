@@ -447,7 +447,7 @@ else
 	fi
 	if [[ $speccpu_run_dir == "" ]]; then
 		if [[ $disk_to_use == "" ]] || [[ $disk_to_use == "grab_disks" ]]; then
-			$tools_bin/grab_disks
+			$tools_bin/grab_disks grab_disks
 			disk=`cat disks | cut -d' ' -f 1`
 		else
 			echo $disk_to_use
