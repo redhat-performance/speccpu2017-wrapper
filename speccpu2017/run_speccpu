@@ -107,6 +107,7 @@ usage()
 	echo "    attempt to remount."
 	echo "  --speccpu_run <path>: mount point of device to run speccpu from"
 	echo "  --speccpu_run_dir <dir>: If provided where the kit is installed at"
+	echo "  --test <list>: A comma separated list.  You may specify intrate, fprate, or any subtest (ie 500.perlbench_r"
 	echo "  --uploads <path>: location to find the iso file in".
 	echo "  --no_disk: use the filesystem with the most free space to install speccpu on."
 	source test_tools/general_setup --usage
