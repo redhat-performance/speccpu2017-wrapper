@@ -55,6 +55,14 @@ provide_disks()
 
 exit_out()
 {
+	#
+	# cd to make sure we are not in one of the speccpu directories
+	#
+	cd
+	if [ $installed -eq 0 ]; then
+		umount ${speccpu_iso_mnt}
+		umount ${speccpu_run}
+	fi
 	echo $1
 	exit $2
 }
@@ -539,13 +547,8 @@ else
 	ln -s  results_pbench_${test_name}_${to_tuned_setting}.tar results_${test_name}_${to_tuned_setting}.tar
 	${curdir}/test_tools/save_results --curdir $curdir --home_root $to_home_root --tar_file /tmp/results_${test_name}_${to_tuned_setting}.tar --test_name $test_name --tuned_setting=$to_tuned_setting --version NONE --user $to_user
 fi
-
-if [ $installed -eq 0 ]; then
-	umount ${speccpu_iso_mnt}
-	umount ${speccpu_run}
-fi
 #
 # Remove speccpu temp files.
 #
 rm /tmp/default_spec.cfg.*
-exit 0
+exit_out "Test completed" 0
