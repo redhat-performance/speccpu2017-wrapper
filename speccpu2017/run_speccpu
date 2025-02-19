@@ -195,8 +195,6 @@ generate_results_csv()
 			else
 				output=`echo $value | sed "s/ /:/g"`
 			fi
-
-
 			echo $output >> ../$out_file
 		done < "data"
 		grep -qi error ../$out_file
