@@ -118,7 +118,7 @@ usage()
 	echo "  --test <list>: A comma separated list.  You may specify intrate, fprate, or any subtest (ie 500.perlbench_r)."
 	echo "  --uploads <path>: location to find the iso file in".
 	echo "  --no_disk: use the filesystem with the most free space to install speccpu on."
-	source test_tools/general_setup --usage
+	source ${curdir}/test_tools/general_setup --usage
 }
 
 if [ $give_usage -eq 1 ]; then 
@@ -174,7 +174,6 @@ generate_results_csv()
 	mkdir work_around 2> /dev/null
 	for file in `ls *txt`; do
 		out_file=`echo $file | cut -d'.' -f1-4`.results.csv
-		$TOOLS_BIN/test_header_info --front_matter --results_file "../$out_file" --host $to_configuration --sys_type $to_sys_type --tuned $to_tuned_setting --results_version $version --test_name $test_name
 		start_data=0
 		#
 		# For some reason we read the wrong file if we try addressing
@@ -183,7 +182,8 @@ generate_results_csv()
 		#
 		cp $file work_around/data
 		cd work_around
-		echo "Benchmarks:Base copies:Base Run Time:Base Rate" > ../$out_file
+		$TOOLS_BIN/test_header_info --front_matter --results_file "../$out_file" --host $to_configuration --sys_type $to_sys_type --tuned $to_tuned_setting --results_version $version --test_name $test_name
+		echo "Benchmarks:Base copies:Base Run Time:Base Rate" >> ../$out_file
 		while IFS= read -r line
 		do
 			if [ $start_data -eq 0 ]; then
@@ -266,7 +266,7 @@ fi
 # to_tuned_setting: tuned setting
 #
 
-source test_tools/general_setup "$@"
+source ${curdir}/test_tools/general_setup "$@"
 
 # Define options
 #
