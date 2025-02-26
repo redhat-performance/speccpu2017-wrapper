@@ -109,7 +109,7 @@ usage()
 	echo "  --speccpu_run_dir <dir>: If provided where the kit is installed at"
 	echo "  --uploads <path>: location to find the iso file in".
 	echo "  --no_disk: use the filesystem with the most free space to install speccpu on."
-	source test_tools/general_setup --usage
+	source ${curdir}/test_tools/general_setup --usage
 }
 
 if [ $give_usage -eq 1 ]; then 
@@ -232,7 +232,7 @@ done
 # clone the repo.
 #
 if [ ! -d "test_tools" ]; then
-	git clone $tools_git test_tools
+	git clone $tools_git ${curdir}/test_tools
 	if [ $? -ne 0 ]; then
 		exit_out "Error: pulling git $tools_git failed." 1
 	fi
@@ -257,7 +257,7 @@ fi
 # to_tuned_setting: tuned setting
 #
 
-source test_tools/general_setup "$@"
+source ${curdir}/test_tools/general_setup "$@"
 
 # Define options
 #
