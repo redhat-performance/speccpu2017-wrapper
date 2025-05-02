@@ -1,0 +1,23 @@
+# Test general meta start
+# Test: speccpu2017
+# Results version: 118
+# Host: m7i.xlarge
+# Sys environ: aws
+# Tuned: virtual-guest
+# OS: 6.12.0-43.el10.x86_64
+# Numa nodes: 1
+# CPU family: Intel(R) Xeon(R) Platinum 8488C
+# Number cpus: 4
+# Memory: 15813972kB
+# Test general meta end
+Benchmarks:Base copies:Base Run Time:Base Rate
+500.perlbench_r:[[:digit:]]{1,}:[[:digit:]]{1,}:[1-9][0-9,.]{1,}$
+502.gcc_r:[[:digit:]]{1,}:[[:digit:]]{1,}:[1-9][0-9,.]{1,}$
+505.mcf_r:[[:digit:]]{1,}:[[:digit:]]{1,}:[1-9][0-9,.]{1,}$
+520.omnetpp_r:[[:digit:]]{1,}:[[:digit:]]{1,}:[1-9][0-9,.]{1,}$
+523.xalancbmk_r:[[:digit:]]{1,}:[[:digit:]]{1,}:[1-9][0-9,.]{1,}$
+525.x264_r:[[:digit:]]{1,}:[[:digit:]]{1,}:[1-9][0-9,.]{1,}$
+531.deepsjeng_r:[[:digit:]]{1,}:[[:digit:]]{1,}:[1-9][0-9,.]{1,}$
+541.leela_r:[[:digit:]]{1,}:[[:digit:]]{1,}:[1-9][0-9,.]{1,}$
+548.exchange2_r:[[:digit:]]{1,}:[[:digit:]]{1,}:[1-9][0-9,.]{1,}$
+557.xz_r:[[:digit:]]{1,}:[[:digit:]]{1,}:[1-9][0-9,.]{1,}$

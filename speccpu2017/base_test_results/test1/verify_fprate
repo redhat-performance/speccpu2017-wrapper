@@ -1,0 +1,26 @@
+# Test general meta start
+# Test: speccpu2017
+# Results version: 118
+# Host: m7i.xlarge
+# Sys environ: aws
+# Tuned: virtual-guest
+# OS: 6.12.0-43.el10.x86_64
+# Numa nodes: 1
+# CPU family: Intel(R) Xeon(R) Platinum 8488C
+# Number cpus: 4
+# Memory: 15813972kB
+# Test general meta end
+Benchmarks:Base copies:Base Run Time:Base Rate
+503.bwaves_r:[[:digit:]]{1,}:[[:digit:]]{1,}:[1-9][0-9,.]{1,}$
+507.cactuBSSN_r[[:digit:]]{1,}:[[:digit:]]{1,}:[1-9][0-9,.]{1,}$
+508.namd_r:[[:digit:]]{1,}:[[:digit:]]{1,}:[1-9][0-9,.]{1,}$
+510.parest_r:[[:digit:]]{1,}:[[:digit:]]{1,}:[1-9][0-9,.]{1,}$
+511.povray_r:[[:digit:]]{1,}:[[:digit:]]{1,}:[1-9][0-9,.]{1,}$
+519.lbm_r:[[:digit:]]{1,}:[[:digit:]]{1,}:[1-9][0-9,.]{1,}$
+521.wrf_r:[[:digit:]]{1,}:[[:digit:]]{1,}:[1-9][0-9,.]{1,}$
+526.blender_r:[[:digit:]]{1,}:[[:digit:]]{1,}:[1-9][0-9,.]{1,}$
+527.cam4_r:[[:digit:]]{1,}:[[:digit:]]{1,}:[1-9][0-9,.]{1,}$
+538.imagick_r:[[:digit:]]{1,}:[[:digit:]]{1,}:[1-9][0-9,.]{1,}$
+544.nab_r:[[:digit:]]{1,}:[[:digit:]]{1,}:[1-9][0-9,.]{1,}$
+549.fotonik3d_r:[[:digit:]]{1,}:[[:digit:]]{1,}:[1-9][0-9,.]{1,}$
+554.roms_r:[[:digit:]]{1,}:[[:digit:]]{1,}:[1-9][0-9,.]{1,}$

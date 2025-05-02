@@ -25,6 +25,7 @@
 #
 version=""
 test_name=speccpu2017
+results_test_name=""
 arguments="$@"
 run_status="Ran"
 gen_args_back="$@"
@@ -126,10 +127,6 @@ if [ $give_usage -eq 1 ]; then
 	usage $0
 fi
 
-if [ $disks_found -eq 0 ]; then
-        provide_disks
-fi
-
 set -- ${gen_args_back}
 
 if [ ! -f "/tmp/${test_name}".out ]; then
@@ -173,7 +170,6 @@ generate_results_csv()
 {
 	mkdir work_around 2> /dev/null
 	for file in `ls *txt`; do
-		out_file=`echo $file | cut -d'.' -f1-4`.results.csv
 		start_data=0
 		#
 		# For some reason we read the wrong file if we try addressing
@@ -182,8 +178,8 @@ generate_results_csv()
 		#
 		cp $file work_around/data
 		cd work_around
-		$TOOLS_BIN/test_header_info --front_matter --results_file "../$out_file" --host $to_configuration --sys_type $to_sys_type --tuned $to_tuned_setting --results_version $version --test_name $test_name
-		echo "Benchmarks:Base copies:Base Run Time:Base Rate" >> ../$out_file
+		$TOOLS_BIN/test_header_info --front_matter --results_file "../$results_test_name" --host $to_configuration --sys_type $to_sys_type --tuned $to_tuned_setting --results_version $version --test_name $test_name
+		echo "Benchmarks:Base copies:Base Run Time:Base Rate" >> ../$results_test_name
 		while IFS= read -r line
 		do
 			if [ $start_data -eq 0 ]; then
@@ -204,14 +200,20 @@ generate_results_csv()
 			else
 				output=`echo $value | sed "s/ /:/g"`
 			fi
-			echo $output >> ../$out_file
+			echo $output >> ../$results_test_name
 		done < "data"
-		grep -qi error ../$out_file
+		grep -qi error ../$results_test_name
 		if [ $? -eq 0 ]; then
 			run_status="Failed: error detected"
 		fi
 		cd ..
 	done
+	#
+	# Verification of test expects results_<test_name>.csv.
+	# Specjbb has subtests, that the verification setion does not understand.
+	# So create a file results_<test_name>.csv to check against.
+	#
+	cp $results_test_name results_{$test_name}.csv
 	rm -rf work_around
 }
 
@@ -267,6 +269,7 @@ fi
 #
 
 source ${curdir}/test_tools/general_setup "$@"
+
 
 # Define options
 #
@@ -406,6 +409,10 @@ while [[ $# -gt 0 ]]; do
         esac
 done
 
+if [ $disks_found -eq 0 ]; then
+        provide_disks
+fi
+
 if [ $installed -eq 0 ] && [[ $disk_to_use != "grab_disks" ]] && [[ $speccpu_run_dir == "" ]]; then
 	device_list=`echo $disk_to_use | sed "s/,/ /g"`
 	for item in $device_list; do
@@ -433,6 +440,7 @@ else
 fi
 
 if [ $to_pbench -eq 1 ]; then
+	echo WRONG
 	source ~/.bashrc
 	cd $curdir
 	echo $TOOLS_BIN/execute_via_pbench --cmd_executing "$0" $arguments --test ${test_name} --spacing 11
@@ -525,6 +533,7 @@ else
 
 	for test_to_run in $tests_to_run
 	do
+		results_test_name="results_${test_name}_${test_to_run}.csv"
 		runcpu --config=${spec_config} --copies=$copies $test_to_run
 	done
 
@@ -553,3 +562,4 @@ fi
 #
 rm /tmp/default_spec.cfg.*
 exit_out "Test completed" 0
+"
