@@ -1,0 +1,5 @@
+Required_Systems: intel,amd,arm
+Via_Zathras: No
+test:--iterations 1 --disks grab_disks --test intrate:base_test_results/test1/verify_intrate
+test:--iterations 1 --disks grab_disks --test fprate:base_test_results/test1/verify_fprate
+
