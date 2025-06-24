@@ -508,10 +508,10 @@ else
 		sed "s/#%define GCCge10  # EDIT: remove the/%define GCCge10  # EDIT: remove the/g" /tmp/foo > /tmp/foo1
 		sed "s/   preENV_LD_LIBRARY_PATH/#   preENV_LD_LIBRARY_PATH/g" /tmp/foo1 > /tmp/foo2
 		# Temporary compiler flag workaround for build error in cam4 with gcc14
-		sed '/527.cam4_r,627.cam4_s:/!b;n; s/PORTABILITY   = -DSPEC_CASE_FLAG/PORTABILITY   = -DSPEC_CASE_FLAG -Wno-error=implicit-int/' /tmp/foo2 > $spec_config
-		LNNO=$(cat -n /tmp/foo2 | grep -A 20 '^ .*500.perlbench' | grep PORT | head -1 | awk '{print $1}')
+		sed '/527.cam4_r,627.cam4_s:/!b;n; s/PORTABILITY   = -DSPEC_CASE_FLAG/PORTABILITY   = -DSPEC_CASE_FLAG -Wno-error=implicit-int/' /tmp/foo2 > /tmp/foo3
+		LNNO=$(cat -n /tmp/foo3 | grep -A 20 '^ .*500.perlbench' | grep PORT | head -1 | awk '{print $1}')
 
-		sed "${LNNO}s/\$/ -Wno-incompatible-pointer-types/" /tmp/foo2 > $spec_config
+		sed "${LNNO}s/\$/ -Wno-incompatible-pointer-types/" /tmp/foo3 > $spec_config
 
 	fi
 
