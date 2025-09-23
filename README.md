@@ -40,6 +40,7 @@ General options
   --tuned_setting: used in naming the tar file, default for RHEL is the current active tuned.  For non
     RHEL systems, default is none.
   --usage: this usage message.
+  --use_pcp: Enables use of Performance Co-Pilot in wrappers, defaults to 0 (off).
 ```
 
 Note: The script does not install pbench for you.  You need to do that manually.
