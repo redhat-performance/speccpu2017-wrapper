@@ -504,6 +504,13 @@ tests_to_run=`echo $tests | sed "s/,/ /g"`
 # Make sure clean build
 #
 bin/runcpu --action=clobber
+#
+# Now build each test.
+#
+for test_to_run in $tests_to_run
+do
+	bin/runcpu --config=${spec_config} --action=build $test_to_run
+done
 
 cpdir=""
 if [[ $to_use_pcp -eq 1 ]]; then
@@ -516,6 +523,9 @@ if [[ $to_use_pcp -eq 1 ]]; then
 	start_pcp ${pdir}/ speccpu $pcp_cfg
 fi
 
+#
+# Run speccpu, we have built the benchmark outside of pcp.
+#
 for test_to_run in $tests_to_run
 do
 	if [[ $to_use_pcp -eq 1 ]]; then
