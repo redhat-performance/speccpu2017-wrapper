@@ -540,6 +540,7 @@ do
 	fi
 done
 if [[ $to_use_pcp -eq 1 ]]; then
+	stop_pcp
 	shutdown_pcp
 fi
 
