@@ -257,8 +257,6 @@ fi
 # to_home_root: home directory
 # to_configuration: configuration information
 # to_times_to_run: number of times to run the test
-# to_pbench: Run the test via pbench
-# to_puser: User running pbench
 # to_run_label: Label for the run
 # to_user: User on the test system running the test
 # to_sys_type: for results info, basically aws, azure or local
@@ -305,7 +303,6 @@ eval set --$opts
 while [[ $# -gt 0 ]]; do
         case "$1" in
 		--copies)
-			pbench_arg_list="${pbench_arg_list} $1 $2"
 			copies=${2}
 			shift 2
 		;;
@@ -314,8 +311,6 @@ while [[ $# -gt 0 ]]; do
 				exit_out "Error: --disks run location already designated, cannot designate multiple"
 			fi
 			run_loc_selected=1
-
-			pbench_arg_list="${pbench_arg_list} $1 $2"
 			disk_to_use=${2}
 			shift 2
 		;;
@@ -324,27 +319,22 @@ while [[ $# -gt 0 ]]; do
 			shift 2
 		;;
 		--installed)
-			pbench_arg_list="${pbench_arg_list} $1"
 			installed=1
 			shift 1
 		;;
 		--spec_config)
-			pbench_arg_list="${pbench_arg_list} $1 $2"
 			spec_config=${2}
 			shift 2
 		;;
 		--speccpu_iso_file)
-			pbench_arg_list="${pbench_arg_list} $1 $2"
 			speccpu_iso_file=${2}
 			shift 2
 		;;
 		--speccpu_iso_mnt)
-			pbench_arg_list="${pbench_arg_list} $1 $2"
 			speccpu_iso_mnt=${2}
 			shift 2
 		;;
 		--speccpu_run)
-			pbench_arg_list="${pbench_arg_list} $1 $2"
 			speccpu_run=${2}
 			shift 2
 		;;
@@ -353,7 +343,6 @@ while [[ $# -gt 0 ]]; do
 				exit_out "Error: --speccpu_run_dir run location already designated, cannot designate multiple"
 			fi
 			run_loc_selected=1
-			pbench_arg_list="${pbench_arg_list} $1 $2"
 			speccpu_run=${2}
 			speccpu_run_dir=${2}
 			shift 2
@@ -363,7 +352,6 @@ while [[ $# -gt 0 ]]; do
 				exit_out "Error: --no_disk run location already designated, cannot designate multiple"
 			fi
 			run_loc_selected=1
-			pbench_arg_list="${pbench_arg_list} $1"
 			use_fs=`df --output=avail,target,source | grep -v Mounted | grep -v tmpfs | sort -n | tail -1 | xargs | sed "s/ /:/g" | cut -d: -f2`
 			speccpu_run=$use_fs
 			speccpu_run_dir=$use_fs
@@ -371,22 +359,18 @@ while [[ $# -gt 0 ]]; do
 		;;
 
 		--test)
-			pbench_arg_list="${pbench_arg_list} $1 $2"
 			tests=${2}
 			shift 2
 		;;
 		--test_prefix)
-			pbench_arg_list="${pbench_arg_list} $1 $2"
 			test_prefix=${2}
 			shift 2
 		;;
 		--tools_git)
-			pbench_arg_list="${pbench_arg_list} $1 $2"
 			tools_git=$2
 			shift 2
 		;;
 		--uploads)
-			pbench_arg_list="${pbench_arg_list} $1 $2"
 			uploads=$2
 			shift 2
 		;;
@@ -432,126 +416,147 @@ else
 	tools_bin="/${to_home_root}/tools_bin"
 fi
 
-if [ $to_pbench -eq 1 ]; then
-	source ~/.bashrc
-	cd $curdir
-	echo $TOOLS_BIN/execute_via_pbench --cmd_executing "$0" $arguments --test ${test_name} --spacing 11
-	$TOOLS_BIN/execute_via_pbench --cmd_executing "$0" $arguments --test ${test_name} --spacing 11
-else
-	if [[ ! -f "${speccpu_iso_mnt}/shrc" ]]; then
-		mkdir ${speccpu_iso_mnt}
-		if [[ $uploads == "" ]]; then
-			uploads="/${to_home_root}/${to_user}/uploads"
-		fi
-		if [[ $speccpu_iso_file == "" ]]; then
-			speccpu_iso_file="$uploads/cpu2017-1*.iso"
-		fi
-		echo mount  -t iso9660 $speccpu_iso_file ${speccpu_iso_mnt}
-		mount  -t iso9660 $speccpu_iso_file ${speccpu_iso_mnt}
-		if [ $? -ne 0 ]; then
-			exit_out "Error: failed to mount $speccpu_iso_file ${speccpu_iso_mnt}" 1
-		fi
+if [[ ! -f "${speccpu_iso_mnt}/shrc" ]]; then
+	mkdir ${speccpu_iso_mnt}
+	if [[ $uploads == "" ]]; then
+		uploads="/${to_home_root}/${to_user}/uploads"
 	fi
-	if [[ $speccpu_run_dir == "" ]]; then
-		if [[ $disk_to_use == "" ]] || [[ $disk_to_use == "grab_disks" ]]; then
-			$tools_bin/grab_disks grab_disks
-			disk=`cat disks | cut -d' ' -f 1`
-		else
-			echo $disk_to_use
-			disk=`echo $disk_to_use | cut -d',' -f 1 | cut -d'/' -f3-`
-		fi
-		wipefs -a /dev/${disk}
-		mkfs.$data_disk_fs /dev/${disk}
-		if [ $? -ne 0 ]; then
-			exit_out "Error: Failed to make filesystem using /dev/${disk}" 1
-		fi
-		if [[ ! -d ${speccpu_run} ]]; then
-			mkdir ${speccpu_run}
-		fi
-		echo mount /dev/${disk} ${speccpu_run}
-		mount /dev/${disk} ${speccpu_run}
-		if [ $? -ne 0 ]; then
-			exit_out "Error: failed to mount /dev/${disk} on to ${speccpu_run}" 1
-		fi
-		rm -rf ${speccpu_run}
-		mkdir ${speccpu_run}
-	else
-		disk="none"
+	if [[ $speccpu_iso_file == "" ]]; then
+		speccpu_iso_file="$uploads/cpu2017-1*.iso"
 	fi
-	echo ${speccpu_run} > /tmp/options
-	echo yes >> /tmp/options
-	cd ${speccpu_iso_mnt}
-	./install.sh < /tmp/options
+	echo mount  -t iso9660 $speccpu_iso_file ${speccpu_iso_mnt}
+	mount  -t iso9660 $speccpu_iso_file ${speccpu_iso_mnt}
 	if [ $? -ne 0 ]; then
-		exit_out  "Error: install.sh failed." 1
+		exit_out "Error: failed to mount $speccpu_iso_file ${speccpu_iso_mnt}" 1
 	fi
-	echo install complete
-	#
-	# Verify running at least 1.1.8
-	#
-	version=`cat ${speccpu_iso_mnt}/version.txt | sed "s/\.//g"`
-	if [[ $version -lt 118 ]]; then
-		exit_out "Error, need version 1.1.8 or later" 1
-	fi
-	sed "s/%   define  gcc_dir        \"\/opt\/rh\/devtoolset-9\/root\/usr\"/%   define  gcc_dir \/usr/g" $spec_config > /tmp/foo
-	sed "s/tune                 = base,peak/tune                 = base/g" /tmp/foo > /tmp/foo1
-
-	#
-	# Handle compiler version
-	#
-	sed "s/%   define model        -mabi=lp64/%   define model        \"\"/g" /tmp/foo1 > /tmp/foo
-	gcc_version=`gcc --version|grep ^gcc|awk '{print $3}' | cut -d'.' -f 1`
-	spec_config="/tmp/default_spec.cfg"
-	if [[ $gcc_version -lt 10 ]]; then
-		sed "s/   preENV_LD_LIBRARY_PATH/#   preENV_LD_LIBRARY_PATH/g" /tmp/foo >  $spec_config
-	else
-		sed "s/#%define GCCge10  # EDIT: remove the/%define GCCge10  # EDIT: remove the/g" /tmp/foo > /tmp/foo1
-		sed "s/   preENV_LD_LIBRARY_PATH/#   preENV_LD_LIBRARY_PATH/g" /tmp/foo1 > /tmp/foo2
-		# Temporary compiler flag workaround for build error in cam4 with gcc14
-		sed '/527.cam4_r,627.cam4_s:/!b;n; s/PORTABILITY   = -DSPEC_CASE_FLAG/PORTABILITY   = -DSPEC_CASE_FLAG -Wno-error=implicit-int/' /tmp/foo2 > /tmp/foo3
-		LNNO=$(cat -n /tmp/foo3 | grep -A 20 '^ .*500.perlbench' | grep PORT | head -1 | awk '{print $1}')
-
-		sed "${LNNO}s/\$/ -Wno-incompatible-pointer-types/" /tmp/foo3 > $spec_config
-
-	fi
-
-	cd ${speccpu_run}
-	source shrc
-	if [[ $copies == "" ]]; then
-		copies=`nproc`
-	fi
-	tests_to_run=`echo $tests | sed "s/,/ /g"`
-	
-	#
-	# Make sure clean build
-	#
-	bin/runcpu --action=clobber
-
-	for test_to_run in $tests_to_run
-	do
-		runcpu --config=${spec_config} --copies=$copies $test_to_run
-	done
-
-	cd /tmp
-	RESULTSDIR=results_speccpu_${to_tuned_setting}_$(date "+%Y.%m.%d-%H.%M.%S")
-	mkdir -p ${RESULTSDIR}/result
-
-	pushd ${speccpu_run}/result
-	generate_results_csv
-	popd > /dev/null
-	cp -R ${speccpu_run}/result ${RESULTSDIR}
-	mv /tmp/${test_name}.out ${RESULTSDIR}
-	echo $run_status >> ${RESULTSDIR}/test_results_report
-	#
-	# pbench prep
-	#
-	rm -f results_pbench.tar
-	working_dir=`ls -rtd /tmp/results*${test_name}* | grep -v tar | tail -1`
-	find -L $working_dir  -type f | tar --transform 's/.*\///g' -cf results_pbench.tar --files-from=/dev/stdin
-	tar hcf results_pbench_${test_name}_${to_tuned_setting}.tar  $RESULTSDIR
-	ln -s  results_pbench_${test_name}_${to_tuned_setting}.tar results_${test_name}_${to_tuned_setting}.tar
-	${curdir}/test_tools/save_results --curdir $curdir --home_root $to_home_root --tar_file /tmp/results_${test_name}_${to_tuned_setting}.tar --test_name $test_name --tuned_setting=$to_tuned_setting --version NONE --user $to_user
 fi
+if [[ $speccpu_run_dir == "" ]]; then
+	if [[ $disk_to_use == "" ]] || [[ $disk_to_use == "grab_disks" ]]; then
+		$tools_bin/grab_disks grab_disks
+		disk=`cat disks | cut -d' ' -f 1`
+	else
+		echo $disk_to_use
+		disk=`echo $disk_to_use | cut -d',' -f 1 | cut -d'/' -f3-`
+	fi
+	wipefs -a /dev/${disk}
+	mkfs.$data_disk_fs /dev/${disk}
+	if [ $? -ne 0 ]; then
+		exit_out "Error: Failed to make filesystem using /dev/${disk}" 1
+	fi
+	if [[ ! -d ${speccpu_run} ]]; then
+		mkdir ${speccpu_run}
+	fi
+	echo mount /dev/${disk} ${speccpu_run}
+	mount /dev/${disk} ${speccpu_run}
+	if [ $? -ne 0 ]; then
+		exit_out "Error: failed to mount /dev/${disk} on to ${speccpu_run}" 1
+	fi
+	rm -rf ${speccpu_run}
+	mkdir ${speccpu_run}
+else
+	disk="none"
+fi
+echo ${speccpu_run} > /tmp/options
+echo yes >> /tmp/options
+cd ${speccpu_iso_mnt}
+./install.sh < /tmp/options
+if [ $? -ne 0 ]; then
+	exit_out  "Error: install.sh failed." 1
+fi
+echo install complete
+#
+# Verify running at least 1.1.8
+#
+version=`cat ${speccpu_iso_mnt}/version.txt | sed "s/\.//g"`
+if [[ $version -lt 118 ]]; then
+	exit_out "Error, need version 1.1.8 or later" 1
+fi
+sed "s/%   define  gcc_dir        \"\/opt\/rh\/devtoolset-9\/root\/usr\"/%   define  gcc_dir \/usr/g" $spec_config > /tmp/foo
+sed "s/tune                 = base,peak/tune                 = base/g" /tmp/foo > /tmp/foo1
+
+#
+# Handle compiler version
+#
+sed "s/%   define model        -mabi=lp64/%   define model        \"\"/g" /tmp/foo1 > /tmp/foo
+gcc_version=`gcc --version|grep ^gcc|awk '{print $3}' | cut -d'.' -f 1`
+spec_config="/tmp/default_spec.cfg"
+if [[ $gcc_version -lt 10 ]]; then
+	sed "s/   preENV_LD_LIBRARY_PATH/#   preENV_LD_LIBRARY_PATH/g" /tmp/foo >  $spec_config
+else
+	sed "s/#%define GCCge10  # EDIT: remove the/%define GCCge10  # EDIT: remove the/g" /tmp/foo > /tmp/foo1
+	sed "s/   preENV_LD_LIBRARY_PATH/#   preENV_LD_LIBRARY_PATH/g" /tmp/foo1 > /tmp/foo2
+	# Temporary compiler flag workaround for build error in cam4 with gcc14
+	sed '/527.cam4_r,627.cam4_s:/!b;n; s/PORTABILITY   = -DSPEC_CASE_FLAG/PORTABILITY   = -DSPEC_CASE_FLAG -Wno-error=implicit-int/' /tmp/foo2 > /tmp/foo3
+	LNNO=$(cat -n /tmp/foo3 | grep -A 20 '^ .*500.perlbench' | grep PORT | head -1 | awk '{print $1}')
+
+	sed "${LNNO}s/\$/ -Wno-incompatible-pointer-types/" /tmp/foo3 > $spec_config
+
+fi
+
+cd ${speccpu_run}
+source shrc
+if [[ $copies == "" ]]; then
+	copies=`nproc`
+fi
+tests_to_run=`echo $tests | sed "s/,/ /g"`
+	
+#
+# Make sure clean build
+#
+bin/runcpu --action=clobber
+#
+# Now build each test.
+#
+for test_to_run in $tests_to_run
+do
+	bin/runcpu --config=${spec_config} --action=build $test_to_run
+done
+
+cpdir=""
+if [[ $to_use_pcp -eq 1 ]]; then
+	source $TOOLS_BIN/pcp/pcp_commands.inc
+	setup_pcp
+	pcp_cfg=$TOOLS_BIN/pcp/default.cfg
+	pdir=/tmp/pcp_`date "+%Y.%m.%d-%H.%M.%S"`
+	cpdir="--copy_dir $pdir"
+	echo "Start PCP"
+	start_pcp ${pdir}/ speccpu $pcp_cfg
+fi
+
+#
+# Run speccpu, we have built the benchmark outside of pcp.
+#
+for test_to_run in $tests_to_run
+do
+	if [[ $to_use_pcp -eq 1 ]]; then
+		start_pcp_subset
+	fi
+	runcpu --config=${spec_config} --copies=$copies $test_to_run
+	if [[ $to_use_pcp -eq 1 ]]; then
+		echo "Send result to PCP archive"
+		out="${test_to_run}_pcp"
+		result2pcp 1  ${out}
+		stop_pcp_subset
+	fi
+done
+if [[ $to_use_pcp -eq 1 ]]; then
+	stop_pcp
+	shutdown_pcp
+fi
+
+cd /tmp
+RESULTSDIR=results_speccpu_${to_tuned_setting}_$(date "+%Y.%m.%d-%H.%M.%S")
+mkdir -p ${RESULTSDIR}/result
+
+pushd ${speccpu_run}/result
+generate_results_csv
+popd > /dev/null
+cp -R ${speccpu_run}/result ${RESULTSDIR}
+mv /tmp/${test_name}.out ${RESULTSDIR}
+echo $run_status >> ${RESULTSDIR}/test_results_report
+working_dir=`ls -rtd /tmp/results*${test_name}* | grep -v tar | tail -1`
+tar hcf results_${test_name}_${to_tuned_setting}.tar  $RESULTSDIR
+${curdir}/test_tools/save_results --curdir $curdir --home_root $to_home_root --tar_file /tmp/results_${test_name}_${to_tuned_setting}.tar --test_name $test_name --tuned_setting=$to_tuned_setting --version NONE --user $to_user $cpdir
 #
 # Remove speccpu temp files.
 #
