@@ -514,11 +514,11 @@ done
 
 cpdir=""
 if [[ $to_use_pcp -eq 1 ]]; then
-        source $TOOLS_BIN/pcp/pcp_commands.inc
-        setup_pcp
-        pcp_cfg=$TOOLS_BIN/pcp/default.cfg
-        pdir=/tmp/pcp_`date "+%Y.%m.%d-%H.%M.%S"`
-        cpdir="--copy_dir $pdir"
+	source $TOOLS_BIN/pcp/pcp_commands.inc
+	setup_pcp
+	pcp_cfg=$TOOLS_BIN/pcp/default.cfg
+	pdir=/tmp/pcp_`date "+%Y.%m.%d-%H.%M.%S"`
+	cpdir="--copy_dir $pdir"
 	echo "Start PCP"
 	start_pcp ${pdir}/ speccpu $pcp_cfg
 fi
