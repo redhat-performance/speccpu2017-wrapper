@@ -266,6 +266,12 @@ fi
 
 source ${curdir}/test_tools/general_setup "$@"
 
+${TOOLS_BIN}/package_tool --wrapper_config ${run_dir}/speccpu2017.json --no_packages $to_no_pkg_install
+if [[ $? -ne 0 ]]; then
+	echo Packaging installed failed.
+	exit 1
+fi
+
 # Define options
 #
 ARGUMENT_LIST=(

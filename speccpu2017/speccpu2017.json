@@ -1,0 +1,47 @@
+{
+    "dependencies": {
+        "amzn": [
+            "bc",
+            "libnsl",
+            "gcc-gfortran",
+            "nvme-cli",
+            "perf",
+            "git",
+            "unzip",
+            "zip",
+            "libxcrypt-compat"
+        ],
+        "rhel": [
+            "bc",
+            "libnsl",
+            "gcc-gfortran",
+            "nvme-cli",
+            "perf",
+            "git",
+            "unzip",
+            "zip",
+            "libxcrypt-compat"
+        ],
+        "sles": [
+            "gcc",
+            "make",
+            "gcc-fortran",
+            " gcc-c++",
+            "bc",
+            "git",
+            "unzip",
+            "zip"
+        ],
+        "ubuntu": [
+            "bc",
+            "zip",
+            "unzip",
+            "git",
+            "gfortran",
+            "g++",
+            "gcc"
+        ],
+        "pip": [
+        ]
+    }
+}
