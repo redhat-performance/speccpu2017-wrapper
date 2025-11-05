@@ -26,7 +26,7 @@
             "gcc",
             "make",
             "gcc-fortran",
-            " gcc-c++",
+            "gcc-c++",
             "bc",
             "git",
             "unzip",
