@@ -59,9 +59,11 @@ exit_out()
 	# cd to make sure we are not in one of the speccpu directories
 	#
 	cd
-	if [ $installed -eq 0 ]; then
+	if [[ $installed -eq 0 ]]; then
 		umount ${speccpu_iso_mnt}
 		umount ${speccpu_run}
+	else
+		rm -f ${speccpu_run}/result/recorded
 	fi
 	echo $1
 	exit $2
@@ -171,8 +173,16 @@ fi
 
 generate_results_csv()
 {
+	stat_time="${2}"
+	end_time="${3}"
 	mkdir work_around 2> /dev/null
 	for file in `ls *txt`; do
+		if [[ -f recorded ]]; then
+			grep -q $1 recorded
+			if [[ $? -eq 0 ]]; then
+				continue
+			fi
+		fi
 		out_file=`echo $file | cut -d'.' -f1-4`.results.csv
 		start_data=0
 		#
@@ -182,8 +192,8 @@ generate_results_csv()
 		#
 		cp $file work_around/data
 		cd work_around
-		$TOOLS_BIN/test_header_info --front_matter --results_file "../$out_file" --host $to_configuration --sys_type $to_sys_type --tuned $to_tuned_setting --results_version $version --test_name $test_name
-		echo "Benchmarks:Base copies:Base Run Time:Base Rate" >> ../$out_file
+		$TOOLS_BIN/test_header_info --front_matter --results_file "../$out_file" --host $to_configuration --sys_type $to_sys_type --tuned $to_tuned_setting --results_version $version --test_name $test_name --field_header "Benchmarks,Base copies,Base Run Time,Base Rate"
+		pwd
 		while IFS= read -r line
 		do
 			if [ $start_data -eq 0 ]; then
@@ -200,9 +210,21 @@ generate_results_csv()
 			if [[ $checking == "NR" ]]; then
 				run_status="Failed NR found in the results"
 				local_test_name=`echo $value | cut -d' ' -f 1`
-				output="${local_test_name}:::NR"
+				output=$(build_data_string "${local_test_name}" "" "" "" "NR" "${start_time}" "${end_time}")
 			else
-				output=`echo $value | sed "s/ /:/g"`
+				f1=`echo $value | cut -d' ' -f1`
+				f2=`echo $value | cut -d' ' -f2`
+				f3=`echo $value | cut -d' ' -f3`
+				f4=`echo $value | cut -d' ' -f4`
+				output=$(build_data_string "${f1}" "${f2}" "${f3}" "${f4}" "${start_time}" "${end_time}")
+			fi
+			if [[ $to_use_pcp -eq 1 ]]; then
+				metric=`echo $output | cut -d',' -f 1  | sed "s/\.//g" | sed "s/,//g"`
+				value=`echo $output | cut -d',' -f 4`
+				re="^[0-9]+([.][0-9]+)?$"
+				if [[ $value =~ $re ]]; then
+					results2pcp_add_value "spec_${metric}:${value}"
+				fi
 			fi
 			echo $output >> ../$out_file
 		done < "data"
@@ -212,6 +234,10 @@ generate_results_csv()
 		fi
 		cd ..
 	done
+	if [[ $to_use_pcp -eq 1 ]]; then
+		results2pcp_add_value_commit
+		reset_pcp_om
+	fi
 	rm -rf work_around
 }
 
@@ -519,29 +545,43 @@ do
 done
 
 cpdir=""
-if [[ $to_use_pcp -eq 1 ]]; then
-	source $TOOLS_BIN/pcp/pcp_commands.inc
-	setup_pcp
-	pcp_cfg=$TOOLS_BIN/pcp/default.cfg
-	pdir=/tmp/pcp_`date "+%Y.%m.%d-%H.%M.%S"`
-	cpdir="--copy_dir $pdir"
-	echo "Start PCP"
-	start_pcp ${pdir}/ speccpu $pcp_cfg
-fi
+pdir=""
 
 #
 # Run speccpu, we have built the benchmark outside of pcp.
 #
+pcp_out=""
 for test_to_run in $tests_to_run
 do
 	if [[ $to_use_pcp -eq 1 ]]; then
+		source $TOOLS_BIN/pcp/pcp_commands.inc
+		rm -rf ${run_dir}/openmetrics_speccpu2017_reset.txt
+		#
+		# To keep the pcp start up happy.
+		#
+		echo "iteration NaN" >> ${run_dir}/openmetrics_speccpu2017_reset.txt
+		while IFS= read -r line
+		do
+			metric=`echo "$line" | sed "s/\.//g" | sed "s/,//g"`
+			echo "spec_${metric} NaN" >> ${run_dir}/openmetrics_speccpu2017_reset.txt
+		done < "${run_dir}/openmetrics_speccpu2017_base_reset.txt"
+		setup_pcp
+		pcp_cfg=$TOOLS_BIN/pcp/default.cfg
+		if [[ $pdir == "" ]]; then
+			pdir=/tmp/pcp_`date "+%Y.%m.%d-%H.%M.%S"`
+			cpdir="--copy_dir $pdir"
+		fi
+		pcp_out="speccpu_${test_to_run}"
+		start_pcp ${pdir}/ "${pcp_out}" $pcp_cfg
 		start_pcp_subset
 	fi
+	start_time=$(retrieve_time_stamp)
 	runcpu --config=${spec_config} --copies=$copies $test_to_run
+	end_time=$(retrieve_time_stamp)
+	pushd ${speccpu_run}/result
+	generate_results_csv $test_to_run "${start_time}" "${end_time}"
+	popd > /dev/null
 	if [[ $to_use_pcp -eq 1 ]]; then
-		echo "Send result to PCP archive"
-		out="${test_to_run}_pcp"
-		result2pcp 1  ${out}
 		stop_pcp_subset
 	fi
 done
@@ -554,9 +594,6 @@ cd /tmp
 RESULTSDIR=results_speccpu_${to_tuned_setting}_$(date "+%Y.%m.%d-%H.%M.%S")
 mkdir -p ${RESULTSDIR}/result
 
-pushd ${speccpu_run}/result
-generate_results_csv
-popd > /dev/null
 cp -R ${speccpu_run}/result ${RESULTSDIR}
 mv /tmp/${test_name}.out ${RESULTSDIR}
 echo $run_status >> ${RESULTSDIR}/test_results_report
