@@ -176,7 +176,7 @@ generate_results_csv()
 	stat_time="${2}"
 	end_time="${3}"
 	mkdir work_around 2> /dev/null
-	for file in `ls *txt`; do
+	for file in `ls -rt *txt | tail -1`; do
 		if [[ -f recorded ]]; then
 			grep -q $1 recorded
 			if [[ $? -eq 0 ]]; then
