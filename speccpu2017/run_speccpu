@@ -268,15 +268,13 @@ generate_results_csv()
 		exit_out "${TOOLS_BIN}/csv_to_json $to_json_flags --csv_file $out_File --output_file speccpu_res.json returned an an error" 3
 	fi
 	${TOOLS_BIN}/verify_results $to_verify_flags --schema_file $script_dir/results_schema.py --class_name Speccput2017_Results --file speccpu_res.json
-	#
-	# Induce error
-	#
 	if [[ $? -ne 0 ]]; then
 		echo Test failure detected: $out_File
 		test_rtc=3
 	fi
 	rm -rf work_around $verify_file
 }
+
 found=0
 show_usage=0
 for arg in "$@"; do
