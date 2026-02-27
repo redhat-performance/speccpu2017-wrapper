@@ -39,8 +39,24 @@ give_usage=0
 use_fs=""
 run_loc_selected=0
 data_disk_fs="xfs"
-
 disk_options=""
+test_rtc=0
+script_dir=$(realpath $(dirname $0))
+
+#
+# Check to see if the test tools directory exists.  If it does, we do not need to
+# clone the repo.
+#
+tools_git="https://github.com/redhat-performance/test_tools-wrappers"
+TOOLS_BIN=${HOME}/test_tools
+export TOOLS_BIN
+if [ ! -d "${TOOLS_BIN}" ]; then
+	git clone $tools_git ${TOOLS_BIN}
+	if [ $? -ne 0 ]; then
+		exit_out "Error: pulling git $tools_git failed." 1
+	fi
+fi
+
 provide_disks()
 {
 	echo You need to designate disks, following are currently not mounted.
@@ -120,7 +136,7 @@ usage()
 	echo "  --test <list>: A comma separated list.  You may specify intrate, fprate, or any subtest (ie 500.perlbench_r)."
 	echo "  --uploads <path>: location to find the iso file in".
 	echo "  --no_disk: use the filesystem with the most free space to install speccpu on."
-	source ${curdir}/test_tools/general_setup --usage
+	source ${TOOLS_BIN}/general_setup --usage
 }
 
 if [ $give_usage -eq 1 ]; then 
@@ -138,7 +154,7 @@ if [ ! -f "/tmp/${test_name}".out ]; then
 	command="${0} $@ $disk_options"
 	echo $command
 	$command &> /tmp/${test_name}.out
-	exit 0
+	exit $?
 fi
 
 setup_done=0
@@ -147,7 +163,6 @@ out_file=""
 copies=""
 tests="fprate,intrate"
 test_prefix="none"
-tools_git="https://github.com/redhat-performance/test_tools-wrappers"
 disk_to_use=""
 spec_config=""
 
@@ -173,9 +188,11 @@ fi
 
 generate_results_csv()
 {
+	test_ran="${1}"
 	stat_time="${2}"
 	end_time="${3}"
 	mkdir work_around 2> /dev/null
+	out_file=""
 	for file in `ls -rt *txt | tail -1`; do
 		if [[ -f recorded ]]; then
 			grep -q $1 recorded
@@ -192,7 +209,7 @@ generate_results_csv()
 		#
 		cp $file work_around/data
 		cd work_around
-		$TOOLS_BIN/test_header_info --front_matter --results_file "../$out_file" --host $to_configuration --sys_type $to_sys_type --tuned $to_tuned_setting --results_version $version --test_name $test_name --field_header "Benchmarks,Base copies,Base Run Time,Base Rate"
+		$TOOLS_BIN/test_header_info --front_matter --results_file "../$out_file" --host $to_configuration --sys_type $to_sys_type --tuned $to_tuned_setting --results_version $version --test_name $test_name --field_header "Benchmarks,Base_copies,Base_Run_Time,Base_Rate"
 		pwd
 		while IFS= read -r line
 		do
@@ -210,7 +227,7 @@ generate_results_csv()
 			if [[ $checking == "NR" ]]; then
 				run_status="Failed NR found in the results"
 				local_test_name=`echo $value | cut -d' ' -f 1`
-				output=$(build_data_string "${local_test_name}" "" "" "" "NR" "${start_time}" "${end_time}")
+				output=$(build_data_string "${local_test_name}" "" "" "NR" "${start_time}" "${end_time}")
 			else
 				f1=`echo $value | cut -d' ' -f1`
 				f2=`echo $value | cut -d' ' -f2`
@@ -228,17 +245,34 @@ generate_results_csv()
 			fi
 			echo $output >> ../$out_file
 		done < "data"
-		grep -qi error ../$out_file
-		if [ $? -eq 0 ]; then
-			run_status="Failed: error detected"
-		fi
 		cd ..
 	done
 	if [[ $to_use_pcp -eq 1 ]]; then
 		results2pcp_add_value_commit
 		reset_pcp_om
 	fi
-	rm -rf work_around
+	#
+	# Only check the tests we actually were suppose to run.
+	#
+	verify_file=$(mktemp /tmp/speccpu_test_verify.XXXXX)
+	if [[ $test_ran != "intrate" ]] && [[ $test_ran != "fprate" ]]; then
+		cp -R $out_file $verify_file
+		grep Benchmark $out_file > $verify_file
+		grep $test_ran $out_file >> $verify_file
+	else
+		cp -R $out_file $verify_file
+	fi 
+	rm -f speccpu_res.json
+	${TOOLS_BIN}/csv_to_json $to_json_flags --csv_file $verify_file --output_file speccpu_res.json
+	if [[ $? -ne 0 ]]; then
+		exit_out "${TOOLS_BIN}/csv_to_json $to_json_flags --csv_file $out_File --output_file speccpu_res.json returned an an error" 3
+	fi
+	${TOOLS_BIN}/verify_results $to_verify_flags --schema_file $script_dir/results_schema.py --class_name Speccput2017_Results --file speccpu_res.json
+	if [[ $? -ne 0 ]]; then
+		echo Test failure detected: $out_File
+		test_rtc=3
+	fi
+	rm -rf work_around $verify_file
 }
 
 found=0
@@ -262,17 +296,6 @@ for arg in "$@"; do
 	fi
 done
 
-#
-# Check to see if the test tools directory exists.  If it does, we do not need to
-# clone the repo.
-#
-if [ ! -d "test_tools" ]; then
-	git clone $tools_git ${curdir}/test_tools
-	if [ $? -ne 0 ]; then
-		exit_out "Error: pulling git $tools_git failed." 1
-	fi
-fi
-
 if [ $show_usage -eq 1 ]; then
 	usage $0
 fi
@@ -290,7 +313,7 @@ fi
 # to_tuned_setting: tuned setting
 #
 
-source ${curdir}/test_tools/general_setup "$@"
+source ${TOOLS_BIN}/general_setup "$@"
 
 ${TOOLS_BIN}/package_tool --wrapper_config ${run_dir}/speccpu2017.json --no_packages $to_no_pkg_install
 if [[ $? -ne 0 ]]; then
@@ -597,11 +620,12 @@ mkdir -p ${RESULTSDIR}/result
 cp -R ${speccpu_run}/result ${RESULTSDIR}
 mv /tmp/${test_name}.out ${RESULTSDIR}
 echo $run_status >> ${RESULTSDIR}/test_results_report
+echo RESULTSDIR $RESULTSDIR
 working_dir=`ls -rtd /tmp/results*${test_name}* | grep -v tar | tail -1`
 tar hcf results_${test_name}_${to_tuned_setting}.tar  $RESULTSDIR
-${curdir}/test_tools/save_results --curdir $curdir --home_root $to_home_root --tar_file /tmp/results_${test_name}_${to_tuned_setting}.tar --test_name $test_name --tuned_setting=$to_tuned_setting --version NONE --user $to_user $cpdir
+${TOOLS_BIN}/save_results --curdir $curdir --home_root $to_home_root --tar_file /tmp/results_${test_name}_${to_tuned_setting}.tar --test_name $test_name --tuned_setting=$to_tuned_setting --version NONE --user $to_user $cpdir
 #
 # Remove speccpu temp files.
 #
 rm /tmp/default_spec.cfg.*
-exit_out "Test completed" 0
+exit_out "Test completed" $test_rtc
