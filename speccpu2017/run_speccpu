@@ -53,9 +53,10 @@ export TOOLS_BIN
 if [ ! -d "${TOOLS_BIN}" ]; then
 	git clone $tools_git ${TOOLS_BIN}
 	if [ $? -ne 0 ]; then
-		exit_out "Error: pulling git $tools_git failed." 1
+		exit_out "Error: pulling git $tools_git failed." $E_GENERAL
 	fi
 fi
+source ${TOOLS_BIN}/error_codes
 
 provide_disks()
 {
@@ -264,13 +265,14 @@ generate_results_csv()
 	fi 
 	rm -f speccpu_res.json
 	${TOOLS_BIN}/csv_to_json $to_json_flags --csv_file $verify_file --output_file speccpu_res.json
-	if [[ $? -ne 0 ]]; then
-		exit_out "${TOOLS_BIN}/csv_to_json $to_json_flags --csv_file $out_File --output_file speccpu_res.json returned an an error" 3
+	test_rtc=$?
+	if [[ $test_rtc -ne 0 ]]; then
+		exit_out "${TOOLS_BIN}/csv_to_json $to_json_flags --csv_file $out_File --output_file speccpu_res.json returned an an error" $test_rtc
 	fi
 	${TOOLS_BIN}/verify_results $to_verify_flags --schema_file $script_dir/results_schema.py --class_name Speccput2017_Results --file speccpu_res.json
-	if [[ $? -ne 0 ]]; then
+	test_rtc=$?
+	if [[ $test_rtc -ne 0 ]]; then
 		echo Test failure detected: $out_File
-		test_rtc=3
 	fi
 	rm -rf work_around $verify_file
 }
@@ -315,10 +317,10 @@ fi
 
 source ${TOOLS_BIN}/general_setup "$@"
 
-${TOOLS_BIN}/package_tool --wrapper_config ${run_dir}/speccpu2017.json --no_packages $to_no_pkg_install
+package_tool --wrapper_config ${run_dir}/speccpu2017.json --no_packages $to_no_pkg_install
 if [[ $? -ne 0 ]]; then
 	echo Package installation using ${TOOLS_BIN}/package_tool was unsuccessful.
-	exit 1
+	exit $E_PACKAGE_TOOL_PACKAGING
 fi
 
 # Define options
@@ -363,7 +365,7 @@ while [[ $# -gt 0 ]]; do
 		;;
 		--disks)
 			if [ $run_loc_selected -ne 0 ]; then
-				exit_out "Error: --disks run location already designated, cannot designate multiple"
+				exit_out "Error: --disks run location already designated, cannot designate multiple" $E_USAGE
 			fi
 			run_loc_selected=1
 			disk_to_use=${2}
@@ -395,7 +397,7 @@ while [[ $# -gt 0 ]]; do
 		;;
 		--speccpu_run_dir)
 			if [ $run_loc_selected -ne 0 ]; then
-				exit_out "Error: --speccpu_run_dir run location already designated, cannot designate multiple"
+				exit_out "Error: --speccpu_run_dir run location already designated, cannot designate multiple" $E_USAGE
 			fi
 			run_loc_selected=1
 			speccpu_run=${2}
@@ -404,7 +406,7 @@ while [[ $# -gt 0 ]]; do
 		;;
 		--no_disk)
 			if [ $run_loc_selected -ne 0 ]; then
-				exit_out "Error: --no_disk run location already designated, cannot designate multiple"
+				exit_out "Error: --no_disk run location already designated, cannot designate multiple" $E_USAGE
 			fi
 			run_loc_selected=1
 			use_fs=`df --output=avail,target,source | grep -v Mounted | grep -v tmpfs | sort -n | tail -1 | xargs | sed "s/ /:/g" | cut -d: -f2`
@@ -451,7 +453,7 @@ if [ $installed -eq 0 ] && [[ $disk_to_use != "grab_disks" ]] && [[ $speccpu_run
 		value=`file $item`
 		echo $value | grep "block special" > /dev/null
 		if [ $? -ne 0 ]; then
-			exit_out "Error: $item is not a block device" 1
+			exit_out "Error: $item is not a block device" $E_GENERAL
 		fi
 	done
 fi
@@ -482,7 +484,7 @@ if [[ ! -f "${speccpu_iso_mnt}/shrc" ]]; then
 	echo mount  -t iso9660 $speccpu_iso_file ${speccpu_iso_mnt}
 	mount  -t iso9660 $speccpu_iso_file ${speccpu_iso_mnt}
 	if [ $? -ne 0 ]; then
-		exit_out "Error: failed to mount $speccpu_iso_file ${speccpu_iso_mnt}" 1
+		exit_out "Error: failed to mount $speccpu_iso_file ${speccpu_iso_mnt}" $E_GENERAL
 	fi
 fi
 if [[ $speccpu_run_dir == "" ]]; then
@@ -496,7 +498,7 @@ if [[ $speccpu_run_dir == "" ]]; then
 	wipefs -a /dev/${disk}
 	mkfs.$data_disk_fs /dev/${disk}
 	if [ $? -ne 0 ]; then
-		exit_out "Error: Failed to make filesystem using /dev/${disk}" 1
+		exit_out "Error: Failed to make filesystem using /dev/${disk}" $E_GENERAL
 	fi
 	if [[ ! -d ${speccpu_run} ]]; then
 		mkdir ${speccpu_run}
@@ -504,7 +506,7 @@ if [[ $speccpu_run_dir == "" ]]; then
 	echo mount /dev/${disk} ${speccpu_run}
 	mount /dev/${disk} ${speccpu_run}
 	if [ $? -ne 0 ]; then
-		exit_out "Error: failed to mount /dev/${disk} on to ${speccpu_run}" 1
+		exit_out "Error: failed to mount /dev/${disk} on to ${speccpu_run}" $E_GENERAL
 	fi
 	rm -rf ${speccpu_run}
 	mkdir ${speccpu_run}
@@ -516,7 +518,7 @@ echo yes >> /tmp/options
 cd ${speccpu_iso_mnt}
 ./install.sh < /tmp/options
 if [ $? -ne 0 ]; then
-	exit_out  "Error: install.sh failed." 1
+	exit_out  "Error: install.sh failed." $E_GENERAL
 fi
 echo install complete
 #
@@ -524,7 +526,7 @@ echo install complete
 #
 version=`cat ${speccpu_iso_mnt}/version.txt | sed "s/\.//g"`
 if [[ $version -lt 118 ]]; then
-	exit_out "Error, need version 1.1.8 or later" 1
+	exit_out "Error, need version 1.1.8 or later" $E_GENERAL
 fi
 sed "s/%   define  gcc_dir        \"\/opt\/rh\/devtoolset-9\/root\/usr\"/%   define  gcc_dir \/usr/g" $spec_config > /tmp/foo
 sed "s/tune                 = base,peak/tune                 = base/g" /tmp/foo > /tmp/foo1
