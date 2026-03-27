@@ -43,6 +43,22 @@ disk_options=""
 test_rtc=0
 script_dir=$(realpath $(dirname $0))
 
+exit_out()
+{
+	#
+	# cd to make sure we are not in one of the speccpu directories
+	#
+	cd
+	if [[ $installed -eq 0 ]]; then
+		umount ${speccpu_iso_mnt}
+		umount ${speccpu_run}
+	else
+		rm -f ${speccpu_run}/result/recorded
+	fi
+	echo $1
+	exit $2
+}
+
 #
 # Check to see if the test tools directory exists.  If it does, we do not need to
 # clone the repo.
@@ -51,22 +67,11 @@ tools_git="https://github.com/redhat-performance/test_tools-wrappers"
 TOOLS_BIN=${HOME}/test_tools
 export TOOLS_BIN
 
-attempt_tools_wget()
+attempt_tools_generic()
 {
+	method="$1"
         if [[ ! -d "$TOOLS_BIN" ]]; then
-                wget ${tools_git}/archive/refs/heads/main.zip
-                if [[ $? -eq 0 ]]; then
-                        unzip -q main.zip
-                        mv test_tools-wrappers-main ${TOOLS_BIN}
-                        rm main.zip
-                fi
-        fi
-}
-
-attempt_tools_curl()
-{
-        if [[ ! -d "$TOOLS_BIN" ]]; then
-                curl -L -O ${tools_git}/archive/refs/heads/main.zip
+                $method ${tools_git}/archive/refs/heads/main.zip
                 if [[ $? -eq 0 ]]; then
                         unzip -q main.zip
                         mv test_tools-wrappers-main ${TOOLS_BIN}
@@ -85,8 +90,8 @@ attempt_tools_git()
         fi
 }
 
-attempt_tools_wget
-attempt_tools_curl
+attempt_tools_generic "wget"
+attempt_tools_generic "curl -L -O "
 attempt_tools_git
 
 source ${TOOLS_BIN}/error_codes
@@ -101,22 +106,6 @@ provide_disks()
 	device_list=`echo $devices_to_use | sed "s/,/,\/dev\//g"`
 	device_list=/dev/${device_list}
 	disk_options="--disks ${device_list}"
-}
-
-exit_out()
-{
-	#
-	# cd to make sure we are not in one of the speccpu directories
-	#
-	cd
-	if [[ $installed -eq 0 ]]; then
-		umount ${speccpu_iso_mnt}
-		umount ${speccpu_run}
-	else
-		rm -f ${speccpu_run}/result/recorded
-	fi
-	echo $1
-	exit $2
 }
 
 i=1
