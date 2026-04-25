@@ -14,6 +14,7 @@
         "rhel": [
             "bc",
             "libnsl",
+	    "g++",
             "gcc-gfortran",
             "nvme-cli",
             "perf",
