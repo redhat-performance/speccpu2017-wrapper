@@ -29,10 +29,13 @@ SPEC CPU 2017 Options:
       Defaults to architecture-appropriate Example-gcc-linux config.
 
 Disk/Storage Options:
-  --disks <path>: Block device(s) to use for the speccpu run area.
+  --disks <path>: Block device to use for the speccpu run area. If multiple comma-separated
+      devices are provided, only the first device is used for formatting and mounting.
   --disk_fs <fs>: Filesystem type to create on --disks device (default: xfs).
   --no_disk: Automatically select the filesystem with the most free space.
-  --installed: Skip ISO mount/install; kit is already installed at --speccpu_run_dir.
+  --installed: Indicate that the kit is already installed. Skips disk formatting/mounting
+      and suppresses ISO unmount on exit. The ISO is still mounted and install.sh is still
+      run to ensure the kit is up to date at the --speccpu_run_dir location.
   --speccpu_iso_file <path>: Path to the SPEC CPU 2017 ISO file.
   --speccpu_iso_mnt <path>: Mount point for the ISO (default: /speccpu).
   --speccpu_run <path>: Mount point for benchmark execution area (default: /speccpu_run).
@@ -77,7 +80,7 @@ The `run_speccpu` script performs the following workflow:
 3. **Disk and Filesystem Setup**:
    - If `--disks` is provided, wipes the device, creates a new filesystem, and mounts it.
    - If `--no_disk` is used, automatically selects the filesystem with the most free space.
-   - If `--installed` is used, skips disk and ISO handling entirely.
+   - If `--installed` is used with `--speccpu_run_dir`, skips disk formatting/mounting (uses the provided directory directly). Note: the ISO is still mounted and install.sh is still executed.
    - Interactive disk selection via grab_disks utility if no disk option is specified.
 
 4. **SPEC CPU 2017 Installation**:
@@ -126,7 +129,7 @@ The `run_speccpu` script performs the following workflow:
 10. **Output**:
     - Creates results directory: `results_speccpu_<tuned_setting>_<timestamp>`.
     - Copies all SPEC CPU 2017 result files.
-    - Archives results into a tarball: `results_speccpu_<tuned_setting>.tar`.
+    - Archives results into a tarball: `results_speccpu2017_<tuned_setting>.tar`.
     - Saves results to configured storage via save_results.
 
 ## Dependencies
@@ -143,8 +146,10 @@ To run:
 ```bash
 git clone https://github.com/redhat-performance/speccpu2017-wrapper
 cd speccpu2017-wrapper/speccpu2017
-./run_speccpu --speccpu_iso_file /path/to/cpu2017.iso
+sudo sudo ./run_speccpu --speccpu_iso_file /path/to/cpu2017.iso
 ```
+
+**Note**: Root or sudo privileges are required for ISO mounting (`mount`), disk formatting (`wipefs`, `mkfs`), and filesystem mounting operations.
 
 The script will automatically detect your CPU architecture and select appropriate defaults.
 
@@ -207,18 +212,18 @@ The results directory (`results_speccpu_<tuned_setting>_<timestamp>/`) contains:
   - `.txt` result summary files with per-benchmark scores.
   - `.log` files with detailed build and run output.
   - `.csv` and `.html` formatted result reports.
-- **results_speccpu2017.csv**: Processed CSV file with per-benchmark metrics (Benchmarks, Base_copies, Base_Run_Time, Base_Rate).
+- **\<spec_result_name\>.results.csv**: Processed CSV files with per-benchmark metrics (Benchmarks, Base_copies, Base_Run_Time, Base_Rate). Filenames are derived from the SPEC result `.txt` files.
 - **speccpu_res.json**: JSON results validated against the Pydantic schema.
 - **meta_data*.yml**: System metadata (CPU info, memory, kernel version).
 - **PCP data** (if `--use_pcp` option used): Performance Co-Pilot monitoring data with per-benchmark metric values.
 
-The final archive is saved as: `results_speccpu_<tuned_setting>.tar`
+The final archive is saved as: `results_speccpu2017_<tuned_setting>.tar`
 
 ## Examples
 
 ### Basic run with defaults
 ```bash
-./run_speccpu --speccpu_iso_file /path/to/cpu2017.iso
+sudo ./run_speccpu --speccpu_iso_file /path/to/cpu2017.iso
 ```
 This runs with:
 - All benchmarks (intrate and fprate)
@@ -229,61 +234,61 @@ This runs with:
 
 ### Run only integer rate benchmarks
 ```bash
-./run_speccpu --speccpu_iso_file /path/to/cpu2017.iso --test intrate
+sudo ./run_speccpu --speccpu_iso_file /path/to/cpu2017.iso --test intrate
 ```
 Runs only the 10 integer rate benchmarks.
 
 ### Run specific benchmarks
 ```bash
-./run_speccpu --speccpu_iso_file /path/to/cpu2017.iso --test "500.perlbench_r,502.gcc_r,505.mcf_r"
+sudo ./run_speccpu --speccpu_iso_file /path/to/cpu2017.iso --test "500.perlbench_r,502.gcc_r,505.mcf_r"
 ```
 Runs only the specified individual benchmarks.
 
 ### Run with a specific disk device
 ```bash
-./run_speccpu --speccpu_iso_file /path/to/cpu2017.iso --disks /dev/nvme1n1 --disk_fs xfs
+sudo ./run_speccpu --speccpu_iso_file /path/to/cpu2017.iso --disks /dev/nvme1n1 --disk_fs xfs
 ```
 Creates an XFS filesystem on /dev/nvme1n1, mounts it, and uses it as the benchmark run area.
 
 ### Run without dedicated disk (use existing filesystem)
 ```bash
-./run_speccpu --speccpu_iso_file /path/to/cpu2017.iso --no_disk
+sudo ./run_speccpu --speccpu_iso_file /path/to/cpu2017.iso --no_disk
 ```
 Automatically selects the filesystem with the most free space.
 
-### Run with pre-installed kit
+### Run with pre-installed kit directory
 ```bash
-./run_speccpu --installed --speccpu_run_dir /opt/speccpu2017
+sudo ./run_speccpu --installed --speccpu_run_dir /opt/speccpu2017 --speccpu_iso_file /path/to/cpu2017.iso
 ```
-Skips ISO mount and installation; uses the pre-installed kit at the specified path.
+Skips disk formatting/mounting and uses the specified directory. The ISO is still required for install verification.
 
 ### Run with reduced copies
 ```bash
-./run_speccpu --speccpu_iso_file /path/to/cpu2017.iso --copies 16
+sudo ./run_speccpu --speccpu_iso_file /path/to/cpu2017.iso --copies 16
 ```
 Runs 16 parallel copies per benchmark instead of using all CPUs.
 
 ### Run multiple iterations
 ```bash
-./run_speccpu --speccpu_iso_file /path/to/cpu2017.iso --iterations 3
+sudo ./run_speccpu --speccpu_iso_file /path/to/cpu2017.iso --iterations 3
 ```
 Runs the full benchmark suite 3 times for consistency verification.
 
 ### Run with PCP monitoring
 ```bash
-./run_speccpu --speccpu_iso_file /path/to/cpu2017.iso --use_pcp
+sudo ./run_speccpu --speccpu_iso_file /path/to/cpu2017.iso --use_pcp
 ```
 Collects Performance Co-Pilot data during the run, with per-benchmark metric tracking.
 
 ### Run with pbench integration
 ```bash
-./run_speccpu --speccpu_iso_file /path/to/cpu2017.iso --pbench --pbench_user testuser --run_label myrun
+sudo ./run_speccpu --speccpu_iso_file /path/to/cpu2017.iso --pbench --pbench_user testuser --run_label myrun
 ```
 Wraps execution with pbench-user-benchmark for centralized performance data collection.
 
 ### Combination example
 ```bash
-./run_speccpu --speccpu_iso_file /path/to/cpu2017.iso --test fprate --copies 32 \
+sudo ./run_speccpu --speccpu_iso_file /path/to/cpu2017.iso --test fprate --copies 32 \
     --iterations 3 --disks /dev/nvme1n1 --use_pcp --tuned_setting throughput-performance
 ```
 Runs floating-point rate benchmarks with 32 copies, 3 iterations, on a dedicated NVMe device, with PCP monitoring and a specific tuned profile label.
@@ -302,10 +307,12 @@ For rate (throughput) benchmarking, maximizing copies typically yields the highe
 
 ### Architecture Detection
 
-The wrapper inspects `/proc/cpuinfo` to determine the CPU vendor:
+The wrapper inspects `/proc/cpuinfo` model name to determine the CPU vendor:
 
-- **Intel or AMD detected**: Uses `Example-gcc-linux-x86.cfg`.
+- **Intel or AMD detected**: Intended to use `Example-gcc-linux-x86.cfg`.
 - **Other (including ARM/aarch64)**: Uses `Example-gcc-linux-aarch64.cfg`.
+
+**Note**: The current script has a known issue where the glob pattern matching for Intel/AMD uses quoted wildcards, which may cause x86 systems to fall through to the aarch64 config. Use `--spec_config` to explicitly specify the correct config file if needed.
 
 ### GCC Version Adaptation
 
@@ -330,16 +337,16 @@ The wrapper applies several modifications to the SPEC-provided example config:
 
 The wrapper supports several strategies for managing the benchmark run area, which needs sufficient space for the full SPEC CPU 2017 installation and build artifacts (~20+ GiB).
 
-### Storage Options (mutually exclusive)
+### Storage Options
 
 | Option | Behavior |
 |--------|----------|
-| `--disks <device>` | Wipes device, creates filesystem, mounts to --speccpu_run |
+| `--disks <device>` | Wipes first device, creates filesystem, mounts to --speccpu_run |
 | `--no_disk` | Selects existing filesystem with most free space |
-| `--installed --speccpu_run_dir <dir>` | Uses pre-installed kit, no disk management |
+| `--speccpu_run_dir <dir>` | Uses the specified directory, skips disk formatting/mounting |
 | *(none)* | Interactive disk selection via grab_disks utility |
 
-Only one run location strategy may be specified. The wrapper validates this and exits with `E_USAGE` if conflicting options are provided.
+The `--disks`, `--speccpu_run_dir`, and `--no_disk` options participate in mutual exclusion — the wrapper validates that only one is specified and exits with `E_USAGE` if conflicting options are provided. Note that `--installed` does not participate in this validation and can be combined with other options.
 
 ### Filesystem Setup Steps
 
@@ -361,7 +368,7 @@ When `--disks` is provided:
 
 ### Pre-Installed Kit
 
-When `--installed` and `--speccpu_run_dir` are specified, the wrapper skips ISO handling entirely and uses the existing installation directory. This is useful for repeated runs or environments where the kit is pre-deployed.
+When `--installed` and `--speccpu_run_dir` are specified, the wrapper skips disk formatting/mounting and uses the provided directory. Note that the ISO is still mounted and `install.sh` is still executed into the target directory. On exit, the wrapper skips ISO/disk unmounting and instead cleans up the `recorded` marker file. An ISO file is still required even with `--installed`.
 
 ## PCP Metrics
 
