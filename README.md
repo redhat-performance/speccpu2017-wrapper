@@ -13,7 +13,7 @@ The wrapper provides:
 - Result collection, CSV/JSON processing, and Pydantic schema validation.
 - System configuration metadata capture.
 - Integration with test_tools framework.
-- Optional Performance Co-Pilot (PCP) and pbench integration.
+- Optional Performance Co-Pilot (PCP) integration.
 
 ## Command-Line Options
 
@@ -42,23 +42,24 @@ Disk/Storage Options:
   --speccpu_run_dir <dir>: Directory of a pre-installed SPEC CPU 2017 kit.
   --uploads <path>: Directory containing the ISO file.
 
-Monitoring Options:
-  --pbench: Enable pbench-user-benchmark integration.
-  --pbench_user <user>: User who started the pbench test.
-  --pbench_copy: Copy pbench data instead of moving it.
-  --pbench_stats <stats>: Pbench statistics to gather.
-  --use_pcp: Enable Performance Co-Pilot monitoring during test execution.
-
 General test_tools Options:
+  --debug: Enables bash -x output, useful for debugging issues with wrappers.
   --home_parent <value>: Parent home directory. Defaults to current working directory.
   --host_config <value>: Host configuration name, defaults to current hostname.
   --iterations <value>: Number of times to run the test, defaults to 1.
-  --run_label <name>: Label for pbench run identification.
+  --iteration_default <value>: Value to set iterations to, if default is not set.
+  --no_system_packages: Do not install system packages via the system package manager.
+  --no_pip_packages: Do not install python pip packages via pip.
+  --no_pkg_install: Test is not to install any packages.
   --run_user <user>: User that is actually running the test. Defaults to current user.
   --sys_type <type>: Type of system (aws, azure, hostname). Defaults to hostname.
+  --test_tools_release <tag>: Version tag of test tools to use.
   --sysname <name>: Name of the system running. Defaults to hostname.
+  --json_skip: Skip JSON conversion of test CSV results, default is 0.
+  --verify_skip: Skip test verifications against output, default is 0.
   --tuned_setting <name>: Used in naming the results directory. For RHEL, defaults to
       current active tuned profile. For non-RHEL systems, defaults to 'none'.
+  --use_pcp: Enable Performance Co-Pilot monitoring during test execution.
   --tools_git <value>: Git repo to retrieve the required tools from.
       Default: https://github.com/redhat-performance/test_tools-wrappers
   --usage: Display this usage message.
@@ -280,12 +281,6 @@ sudo ./run_speccpu --speccpu_iso_file /path/to/cpu2017.iso --use_pcp
 ```
 Collects Performance Co-Pilot data during the run, with per-benchmark metric tracking.
 
-### Run with pbench integration
-```bash
-sudo ./run_speccpu --speccpu_iso_file /path/to/cpu2017.iso --pbench --pbench_user testuser --run_label myrun
-```
-Wraps execution with pbench-user-benchmark for centralized performance data collection.
-
 ### Combination example
 ```bash
 sudo ./run_speccpu --speccpu_iso_file /path/to/cpu2017.iso --test fprate --copies 32 \
@@ -452,4 +447,3 @@ The exit code from verify_results (schema validation) is propagated as the final
 - **GCC 14 build errors**: The wrapper applies known workarounds automatically. If new errors appear with newer GCC versions, check for implicit-int or pointer-type warnings being promoted to errors.
 - **Low copy count performance**: If SPECrate scores are unexpectedly low, verify that copies match the number of available CPUs and that no CPU resources are being consumed by other processes.
 - **Disk space errors**: SPEC CPU 2017 requires significant disk space. Use `df -h` to verify available space before running, especially when using `--no_disk`.
-- **pbench not found**: Ensure pbench is installed and configured if using `--pbench`. The wrapper assumes pbench-user-benchmark is in PATH.
