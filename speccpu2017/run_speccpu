@@ -472,7 +472,8 @@ done
 if [ $installed -eq 0 ] && [[ $disk_to_use != "grab_disks" ]] && [[ $speccpu_run_dir == "" ]]; then
 	device_list=`echo $disk_to_use | sed "s/,/ /g"`
 	for item in $device_list; do
-		value=`file $item`
+		#dereference symlinks to handle things like multipath aliases in /dev/mapper
+		value=`file -L $item`
 		echo $value | grep "block special" > /dev/null
 		if [ $? -ne 0 ]; then
 			exit_out "Error: $item is not a block device" $E_GENERAL
