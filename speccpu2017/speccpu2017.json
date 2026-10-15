@@ -2,6 +2,7 @@
     "dependencies": {
         "amzn": [
             "bc",
+	    'g++",
             "libnsl",
             "gcc-gfortran",
             "nvme-cli",
